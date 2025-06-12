@@ -531,6 +531,9 @@ export default function SensorDetailPage({ params }: { params: { id: string } })
           <Button variant="outline" className="bg-transparent border-gray-700 hover:bg-gray-800">
             <Calendar className="mr-2 h-4 w-4" /> May 19, 2025 - May 26, 2025
           </Button>
+          <Button variant="outline" className="bg-transparent border-gray-700 hover:bg-gray-800" onClick={() => router.push(`/sensors/${sensor.id}/history`)}>
+            View History
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="bg-transparent border-gray-700 hover:bg-gray-800">
