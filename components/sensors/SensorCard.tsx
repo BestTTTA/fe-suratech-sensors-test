@@ -45,6 +45,11 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   }
 
   const getVibrationColor = (level: string) => {
+    // If sensor is offline, return gray color
+    if (safeConnectivity === "offline") {
+      return "bg-gray-400"
+    }
+    
     switch (level) {
       case "normal":
         return "bg-green-500"
@@ -73,8 +78,6 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
     switch (safeConnectivity) {
       case "online":
         return "bg-green-500"
-      case "weak":
-        return "bg-yellow-500"
       case "offline":
         return "bg-red-500"
       default:
