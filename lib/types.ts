@@ -17,7 +17,13 @@ export interface Sensor {
   lastUpdated: number
   readings: SensorReading[]
   status: SensorStatus
-  maintenanceHistory: { date: number; description: string }[]
+  maintenanceHistory: { 
+    date: number
+    description: string
+    technician?: string
+    type?: string
+    partsReplaced?: string
+  }[]
   // New fields for card display
   name: string
   model: string
@@ -37,9 +43,12 @@ export interface Machine {
   location: string
   installationDate: number
   sensors: string[]
-  status: "operational" | "maintenance" | "offline"
+  status: "operational" | "maintenance" | "offline" | "warning"
   lastMaintenance?: number
   nextMaintenance?: number
+  model?: string
+  manufacturer?: string
+  
 }
 
 export interface Alert {

@@ -39,15 +39,9 @@ export default function SensorMaintenanceHistory({ sensor }: SensorMaintenanceHi
 
   const nextMaintenanceDate = new Date(lastMaintenance + 90 * 24 * 60 * 60 * 1000)
 
-  // Calculate health score based on maintenance history and sensor readings
-  const hasRecentMaintenance = daysSinceLastMaintenance < 60
-  const hasGoodReadings = sensor.status === "ok"
-  const healthScore =
-    hasRecentMaintenance && hasGoodReadings ? "good" : !hasRecentMaintenance && !hasGoodReadings ? "poor" : "fair"
-
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Maintenance Status</CardTitle>
@@ -98,27 +92,6 @@ export default function SensorMaintenanceHistory({ sensor }: SensorMaintenanceHi
                 <div className="text-sm text-gray-500">Recommended interval: 90 days</div>
               </div>
               <Calendar className="h-8 w-8 text-gray-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Sensor Health</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="text-2xl font-bold capitalize">{healthScore}</div>
-                <div className="text-sm text-gray-500">Based on maintenance history and readings</div>
-              </div>
-              {healthScore === "good" ? (
-                <CheckCircle2 className="h-8 w-8 text-green-500" />
-              ) : healthScore === "poor" ? (
-                <AlertTriangle className="h-8 w-8 text-red-500" />
-              ) : (
-                <AlertTriangle className="h-8 w-8 text-yellow-500" />
-              )}
             </div>
           </CardContent>
         </Card>

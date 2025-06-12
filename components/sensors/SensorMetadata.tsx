@@ -16,47 +16,6 @@ export default function SensorMetadata({ sensor, machine }: SensorMetadataProps)
   // Calculate operational time
   const operationalDays = Math.floor((Date.now() - sensor.installationDate) / (1000 * 60 * 60 * 24))
 
-  // Calculate health percentage based on readings and status
-  const getHealthPercentage = () => {
-    if (!latestReading) return 100
-
-    let healthScore = 100
-
-    // Reduce health based on temperature
-    if (latestReading.temperature > 35) {
-      healthScore -= 40
-    } else if (latestReading.temperature > 30) {
-      healthScore -= 20
-    }
-
-    // Reduce health based on vibration
-    const maxVibration = Math.max(latestReading.vibrationX, latestReading.vibrationY, latestReading.vibrationZ)
-
-    if (maxVibration > 1.2) {
-      healthScore -= 40
-    } else if (maxVibration > 0.8) {
-      healthScore -= 20
-    }
-
-    // Ensure health is between 0 and 100
-    return Math.max(0, Math.min(100, healthScore))
-  }
-
-  const healthPercentage = getHealthPercentage()
-
-  // Get health status text and color
-  const getHealthStatus = () => {
-    if (healthPercentage >= 80) {
-      return { text: "Good", color: "text-green-400" }
-    } else if (healthPercentage >= 50) {
-      return { text: "Fair", color: "text-yellow-400" }
-    } else {
-      return { text: "Poor", color: "text-red-400" }
-    }
-  }
-
-  const healthStatus = getHealthStatus()
-
   // Determine if readings are within normal range
   const isTemperatureNormal = latestReading ? latestReading.temperature <= 30 : true
   const isVibrationNormal = latestReading
@@ -68,23 +27,6 @@ export default function SensorMetadata({ sensor, machine }: SensorMetadataProps)
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-white">Status</h3>
         <StatusBadge status={sensor.status} />
-      </div>
-
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-300">Sensor Health</span>
-            <span className={healthStatus.color}>
-              {healthStatus.text} ({healthPercentage}%)
-            </span>
-          </div>
-          <Progress
-            value={healthPercentage}
-            className={`h-2 ${
-              healthPercentage >= 80 ? "bg-green-900" : healthPercentage >= 50 ? "bg-yellow-900" : "bg-red-900"
-            }`}
-          />
-        </div>
       </div>
 
       <div className="space-y-2">
@@ -278,7 +220,9 @@ export default function SensorMetadata({ sensor, machine }: SensorMetadataProps)
             )}
             <div className="grid grid-cols-2 gap-2">
               <div className="text-sm font-medium text-gray-400">Next Maintenance</div>
-              <div className="text-sm text-gray-200">{new Date(machine.nextMaintenance).toLocaleDateString()}</div>
+              <div className="text-sm text-gray-200">
+                {machine.nextMaintenance ? new Date(machine.nextMaintenance).toLocaleDateString() : "Not scheduled"}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="text-sm font-medium text-gray-400">Sensors Attached</div>

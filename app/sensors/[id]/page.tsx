@@ -565,7 +565,7 @@ export default function SensorDetailPage({ params }: { params: { id: string } })
                 </div>
               </div>
 
-              <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h2 className="text-lg font-semibold mb-2">Sensor Information</h2>
                   <div className="space-y-1 text-sm">
@@ -626,28 +626,6 @@ export default function SensorDetailPage({ params }: { params: { id: string } })
                       <span className="text-gray-400">Operational Time</span>
                       <span>{sensor.operationalDays || "30"} days</span>
                     </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span>Sensor Health</span>
-                      <span
-                        className={`${safeBattery >= 80 ? "text-green-400" : safeBattery >= 50 ? "text-yellow-400" : "text-red-400"}`}
-                      >
-                        {safeBattery >= 80 ? "Good" : safeBattery >= 50 ? "Fair" : "Poor"} ({safeBattery}%)
-                      </span>
-                    </div>
-                    <Progress
-                      value={safeBattery}
-                      className="h-2 bg-gray-700"
-                      indicatorClassName={`${safeBattery >= 80 ? "bg-green-500" : safeBattery >= 50 ? "bg-yellow-500" : "bg-red-500"}`}
-                    />
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    {sensorLastData ? "Real-time data from API" : "Using cached sensor data"}. Vibration levels: X:
-                    {vibrationH}G, Y:{vibrationV}G, Z:{vibrationA}G
                   </div>
                 </div>
               </div>
@@ -807,46 +785,50 @@ export default function SensorDetailPage({ params }: { params: { id: string } })
                     <div className="mt-6">
                       <h3 className="text-lg font-medium mb-4">Time domain</h3>
                       <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
-                        <Line
-                          data={vibrationData.timeData}
-                          options={{
-                            ...timeChartOptions,
-                            scales: {
-                              ...timeChartOptions.scales,
-                              y: {
-                                ...timeChartOptions.scales.y,
-                                title: {
-                                  ...timeChartOptions.scales.y.title,
-                                  text: vibrationData.yAxisLabel || "Acceleration (G)",
+                        {vibrationData.timeData && (
+                          <Line
+                            data={vibrationData.timeData}
+                            options={{
+                              ...timeChartOptions,
+                              scales: {
+                                ...timeChartOptions.scales,
+                                y: {
+                                  ...timeChartOptions.scales.y,
+                                  title: {
+                                    ...timeChartOptions.scales.y.title,
+                                    text: vibrationData.yAxisLabel || "Acceleration (G)",
+                                  },
                                 },
                               },
-                            },
-                          }}
-                        />
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
 
                     <div className="mt-6">
                       <h3 className="text-lg font-medium mb-4">Frequency domain</h3>
                       <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
-                        <Line
-                          data={vibrationData.freqData}
-                          options={{
-                            ...freqChartOptions,
-                            scales: {
-                              ...freqChartOptions.scales,
-                              y: {
-                                ...freqChartOptions.scales.y,
-                                title: {
-                                  ...freqChartOptions.scales.y.title,
-                                  text: vibrationData.yAxisLabel
-                                    ? `${vibrationData.yAxisLabel} Magnitude`
-                                    : "Magnitude",
+                        {vibrationData.freqData && (
+                          <Line
+                            data={vibrationData.freqData}
+                            options={{
+                              ...freqChartOptions,
+                              scales: {
+                                ...freqChartOptions.scales,
+                                y: {
+                                  ...freqChartOptions.scales.y,
+                                  title: {
+                                    ...freqChartOptions.scales.y.title,
+                                    text: vibrationData.yAxisLabel
+                                      ? `${vibrationData.yAxisLabel} Magnitude`
+                                      : "Magnitude",
+                                  },
                                 },
                               },
-                            },
-                          }}
-                        />
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
                   </>
