@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, MoreVertical, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { getSensorById } from "@/lib/data/sensors"
@@ -132,8 +131,9 @@ interface SensorLastData {
   }
 }
 
-export default function SensorDetailPage({ params }: { params: { id: string } }) {
+export default function SensorDetailPage() {
   const router = useRouter()
+  const params = useParams() as { id: string }
   const [sensor, setSensor] = useState<any>(null)
   const [sensorLastData, setSensorLastData] = useState<SensorLastData | null>(null)
   const [loading, setLoading] = useState(true)

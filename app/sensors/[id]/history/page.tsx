@@ -47,7 +47,10 @@ export default function SensorHistoryPage() {
   // Prepare trend line chart data
   const chartData = useMemo(() => {
     if (!history.length) return null
-    const labels = history.map((h: any) => new Date(h.datetime).toLocaleString())
+    const labels = history.map((h: any) => {
+      const d = new Date(h.datetime);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    })
     const avg = (arr: number[]) => arr && arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
     return {
       labels,
