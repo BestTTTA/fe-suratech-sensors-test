@@ -31,6 +31,18 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   // Check if this is a real API sensor (has specific characteristics)
   const isApiSensor = sensor?.model?.includes("Model-API-") || false
 
+  // If online and has real readings, compute vibration status from latest reading
+  let displayVibrationH = safeVibrationH
+  let displayVibrationV = safeVibrationV
+  let displayVibrationA = safeVibrationA
+  if (safeConnectivity === "online" && latestReading) {
+    const getLevel = (val: number) =>
+      val > 1.2 ? "critical" : val > 0.8 ? "warning" : "normal"
+    displayVibrationH = getLevel(latestReading.vibrationX)
+    displayVibrationV = getLevel(latestReading.vibrationY)
+    displayVibrationA = getLevel(latestReading.vibrationZ)
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "running":
@@ -139,15 +151,15 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
         <div className="flex justify-end gap-2 mb-2">
           <div className="flex flex-col items-center">
             <span className="text-xs font-bold text-black mb-1">H</span>
-            <div className={`w-4 h-8 ${getVibrationColor(safeVibrationH)} rounded-full border border-gray-600`}></div>
+            <div className={`w-4 h-8 ${getVibrationColor(displayVibrationH)} rounded-full border border-gray-600`}></div>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-xs font-bold text-black mb-1">V</span>
-            <div className={`w-4 h-8 ${getVibrationColor(safeVibrationV)} rounded-full border border-gray-600`}></div>
+            <div className={`w-4 h-8 ${getVibrationColor(displayVibrationV)} rounded-full border border-gray-600`}></div>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-xs font-bold text-black mb-1">A</span>
-            <div className={`w-4 h-8 ${getVibrationColor(safeVibrationA)} rounded-full border border-gray-600`}></div>
+            <div className={`w-4 h-8 ${getVibrationColor(displayVibrationA)} rounded-full border border-gray-600`}></div>
           </div>
         </div>
 
