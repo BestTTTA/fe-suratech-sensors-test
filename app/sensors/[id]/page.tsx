@@ -84,41 +84,47 @@ function calculateFFT(timeData: number[]): { magnitude: number[]; frequency: num
   // ปรับความยาวข้อมูลให้เป็นกำลังของ 2 (จำเป็นสำหรับ FFT)
   const nextPow2 = Math.pow(2, Math.ceil(Math.log2(timeData.length)))
 
-  // สร้าง instance ของ FFT
-  const fft = new FFT(nextPow2)
+  try {
+    // สร้าง instance ของ FFT
+    const fft = new FFT(nextPow2)
 
-  // เตรียมข้อมูล input (เติม 0 ถ้าจำเป็น)
-  const input = new Float64Array(nextPow2)
-  for (let i = 0; i < timeData.length; i++) {
-    input[i] = timeData[i]
+    // เตรียมข้อมูล input (เติม 0 ถ้าจำเป็น)
+    const input = new Float64Array(nextPow2)
+    for (let i = 0; i < timeData.length; i++) {
+      input[i] = timeData[i]
+    }
+
+    // เตรียมข้อมูล output (จำนวนจริงและจำนวนจินตภาพ)
+    const output = new Float64Array(nextPow2 * 2)
+
+    // ทำการแปลง FFT
+    fft.realTransform(output, input)
+
+    // คำนวณขนาดและความถี่
+    const n = timeData.length
+    const magnitude: number[] = []
+    const frequency: number[] = []
+
+    // ประมวลผลครึ่งแรกของผลลัพธ์ FFT (ถึงความถี่ Nyquist)
+    for (let i = 0; i < n; i++) {
+      // ดึงส่วนจริงและส่วนจินตภาพ
+      const real = output[i * 2]
+      const imag = output[i * 2 + 1]
+
+      // คำนวณขนาดโดยใช้สูตร: 2.56 / n * abs(fft_res)
+      const abs = Math.sqrt(real * real + imag * imag)
+      magnitude.push((2.56 / n) * abs)
+
+      // คำนวณความถี่
+      frequency.push((i * MAX_FREQ) / n)
+    }
+
+    return { magnitude, frequency: frequency.map(f => parseFloat(f.toFixed(2))) }
+  } catch (error) {
+    console.error("FFT calculation error:", error)
+    // Return empty arrays or arrays of zeros as a safe fallback
+    return { magnitude: [], frequency: [] }
   }
-
-  // เตรียมข้อมูล output (จำนวนจริงและจำนวนจินตภาพ)
-  const output = new Float64Array(nextPow2 * 2)
-
-  // ทำการแปลง FFT
-  fft.realTransform(output, input)
-
-  // คำนวณขนาดและความถี่
-  const n = timeData.length
-  const magnitude: number[] = []
-  const frequency: number[] = []
-
-  // ประมวลผลครึ่งแรกของผลลัพธ์ FFT (ถึงความถี่ Nyquist)
-  for (let i = 0; i < n; i++) {
-    // ดึงส่วนจริงและส่วนจินตภาพ
-    const real = output[i * 2]
-    const imag = output[i * 2 + 1]
-
-    // คำนวณขนาดโดยใช้สูตร: 2.56 / n * abs(fft_res)
-    const abs = Math.sqrt(real * real + imag * imag)
-    magnitude.push((2.56 / n) * abs)
-
-    // คำนวณความถี่
-    frequency.push((i * MAX_FREQ) / n)
-  }
-
-  return { magnitude, frequency: frequency.map(f => parseFloat(f.toFixed(2))) }
 }
 
 // First, update the SensorLastData interface to properly handle the vibration data arrays
@@ -727,25 +733,58 @@ export default function SensorDetailPage() {
             <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Horizontal</h3>
-                <div className="text-sm text-gray-300">Acceleration RMS: <b>{xStats.accelRMS} G</b></div>
-                <div className="text-sm text-gray-300">Velocity RMS: <b>{xStats.velocityRMS} mm/s</b></div>
-                <div className="text-sm text-gray-300">Dominant Frequency: <b>{xStats.dominantFreq} Hz</b></div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Acceleration RMS</span>
+                    <span className="text-right text-white">{xStats.accelRMS}G</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Velocity RMS</span>
+                    <span className="text-right text-white">{xStats.velocityRMS} mm/s</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Dominant Frequency</span>
+                    <span className="text-right text-white">{xStats.dominantFreq} Hz</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Vertical</h3>
-                <div className="text-sm text-gray-300">Acceleration RMS: <b>{yStats.accelRMS} G</b></div>
-                <div className="text-sm text-gray-300">Velocity RMS: <b>{yStats.velocityRMS} mm/s</b></div>
-                <div className="text-sm text-gray-300">Dominant Frequency: <b>{yStats.dominantFreq} Hz</b></div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Acceleration RMS</span>
+                    <span className="text-right text-white">{yStats.accelRMS}G</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Velocity RMS</span>
+                    <span className="text-right text-white">{yStats.velocityRMS} mm/s</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Dominant Frequency</span>
+                    <span className="text-right text-white">{yStats.dominantFreq} Hz</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Axial</h3>
-                <div className="text-sm text-gray-300">Acceleration RMS: <b>{zStats.accelRMS} G</b></div>
-                <div className="text-sm text-gray-300">Velocity RMS: <b>{zStats.velocityRMS} mm/s</b></div>
-                <div className="text-sm text-gray-300">Dominant Frequency: <b>{zStats.dominantFreq} Hz</b></div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Acceleration RMS</span>
+                    <span className="text-right text-white">{zStats.accelRMS}G</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Velocity RMS</span>
+                    <span className="text-right text-white">{zStats.velocityRMS} mm/s</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Dominant Frequency</span>
+                    <span className="text-right text-white">{zStats.dominantFreq} Hz</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
