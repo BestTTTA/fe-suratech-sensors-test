@@ -306,6 +306,21 @@ function getAxisStats(axisData: number[], timeInterval: number) {
   };
 }
 
+// Add this helper function after the existing formatDate function
+const formatDateTime = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'UTC'
+  })
+}
+
 export default function SensorDetailPage() {
   const router = useRouter()
   const params = useParams() as { id: string }
@@ -317,11 +332,13 @@ export default function SensorDetailPage() {
   const [selectedAxis, setSelectedAxis] = useState("H-axis")
   const [selectedUnit, setSelectedUnit] = useState("Acceleration (G)")
   const [error, setError] = useState<string | null>(null)
+  const [datetimes, setDatetimes] = useState<string[]>([])
   const [vibrationStats, setVibrationStats] = useState({
     rms: "0.000",
     peak: "0.000",
     status: "Normal",
   })
+  const [selectedDatetime, setSelectedDatetime] = useState<string>("")
 
   // ฟังก์ชันดึงข้อมูลล่าสุดจากเซ็นเซอร์
   const fetchSensorLastData = async (sensorId: string) => {
@@ -414,9 +431,33 @@ export default function SensorDetailPage() {
     }
   }
 
-  // ดึงข้อมูลเมื่อคอมโพเนนต์โหลด
+  // ฟังก์ชันดึงข้อมูลวันที่ของเซ็นเซอร์
+  const fetchSensorDatetimes = async (sensorId: string) => {
+    try {
+      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/datetimes`, {
+        cache: "no-store",
+        headers: {
+          "Accept": "application/json",
+          "Cache-Control": "no-cache",
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      setDatetimes(data.datetimes)
+      return data.datetimes
+    } catch (error) {
+      console.error("Error fetching sensor datetimes:", error)
+      setError("Failed to fetch sensor datetimes")
+      return []
+    }
+  }
+
+  // ฟังก์ชันดึงข้อมูลเมื่อคอมโพเนนต์โหลด
   useEffect(() => {
     fetchSensor()
+    fetchSensorDatetimes(params.id)
   }, [params.id])
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
@@ -634,9 +675,29 @@ export default function SensorDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="bg-transparent border-gray-700 hover:bg-gray-800">
-            <Calendar className="mr-2 h-4 w-4" /> May 19, 2025 - May 26, 2025
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="bg-transparent border-gray-700 hover:bg-gray-800">
+                <Calendar className="mr-2 h-4 w-4" />
+                {selectedDatetime ? formatDateTime(selectedDatetime) : 'Select Date'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-gray-900 border-gray-800 max-h-[300px] overflow-y-auto">
+              {datetimes.length > 0 ? (
+                datetimes.map((datetime) => (
+                  <DropdownMenuItem
+                    key={datetime}
+                    className="text-white hover:bg-gray-800"
+                    onClick={() => setSelectedDatetime(datetime)}
+                  >
+                    {formatDateTime(datetime)}
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem className="text-gray-500">No dates available</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" className="bg-transparent border-gray-700 hover:bg-gray-800" onClick={() => router.push(`/sensors/${sensor.id}/history`)}>
             View History
           </Button>
