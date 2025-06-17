@@ -26,42 +26,47 @@ import FFT from "fft.js"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
-// Conversion functions for vibration data
+// ฟังก์ชันสำหรับแปลงค่า ADC เป็นค่า Acceleration (G)
+// ADC คือค่าที่ได้จากเซ็นเซอร์แบบดิจิตอล (0-1023)
+// range คือช่วงการวัดของเซ็นเซอร์ (±2G, ±4G, ±8G, ±16G)
 function adcToAccelerationG(adcValue: number, range = 2): number {
-  const offset = 512
+  const offset = 512 // ค่า offset ของเซ็นเซอร์
   let sensitivity: number
 
-  // Set sensitivity based on range (±2G, ±4G, ±8G, ±16G)
+  // กำหนดค่า sensitivity ตามช่วงการวัด
   switch (range) {
     case 2:
-      sensitivity = 17367
+      sensitivity = 17367 // ±2G
       break
     case 4:
-      sensitivity = 8684
+      sensitivity = 8684  // ±4G
       break
     case 8:
-      sensitivity = 4342
+      sensitivity = 4342  // ±8G
       break
     case 16:
-      sensitivity = 2171
+      sensitivity = 2171  // ±16G
       break
     default:
-      sensitivity = 17367 // Default to ±2G
+      sensitivity = 17367 // ค่าเริ่มต้น ±2G
   }
 
   return (adcValue - offset) / sensitivity
 }
 
+// แปลงค่า Acceleration (G) เป็น mm/s²
+// 1G = 9806.65 mm/s²
 function accelerationGToMmPerSecSquared(accelerationG: number): number {
   return accelerationG * 9806.65
 }
 
+// คำนวณความเร็วจากค่า acceleration
+// ใช้สูตร: ความเร็ว = ½(ti+1-ti) * (acceleration1 + acceleration2)
 function accelerationToVelocity(accelerations: number[], timeInterval: number): number[] {
-  // First point of velocity is 0
-  const velocities: number[] = [0]
+  const velocities: number[] = [0] // ค่าเริ่มต้นความเร็วเป็น 0
 
+  console.log(accelerations, "accelerations after velocity");
   for (let i = 0; i < accelerations.length - 1; i++) {
-    // Velocity (mm/s) = ½(ti+1-ti) * (Acceleration (mm/s²)i + Acceleration (mm/s²)i+1)
     const velocity = 0.5 * timeInterval * (accelerations[i] + accelerations[i + 1])
     velocities.push(velocities[velocities.length - 1] + velocity)
   }
@@ -69,46 +74,47 @@ function accelerationToVelocity(accelerations: number[], timeInterval: number): 
   return velocities
 }
 
-// Static sampling rate in Hz (matching the Python example)
-const SAMPLING_RATE = 50.0
+// อัตราการสุ่มตัวอย่างข้อมูล (Hz)
+const SAMPLING_RATE = 5000
 
-// FFT implementation using fft.js library
+// คำนวณ FFT (Fast Fourier Transform) เพื่อวิเคราะห์ความถี่
+// FFT คือการแปลงสัญญาณจากโดเมนเวลาเป็นโดเมนความถี่
 function calculateFFT(timeData: number[]): { magnitude: number[]; frequency: number[] } {
-  // Make sure the length is a power of 2 for FFT
+  // ปรับความยาวข้อมูลให้เป็นกำลังของ 2 (จำเป็นสำหรับ FFT)
   const nextPow2 = Math.pow(2, Math.ceil(Math.log2(timeData.length)))
 
-  // Create FFT instance
+  // สร้าง instance ของ FFT
   const fft = new FFT(nextPow2)
 
-  // Prepare input data (zero-padding if needed)
+  // เตรียมข้อมูล input (เติม 0 ถ้าจำเป็น)
   const input = new Float64Array(nextPow2)
   for (let i = 0; i < timeData.length; i++) {
     input[i] = timeData[i]
   }
 
-  // Prepare output data
-  const output = new Float64Array(nextPow2 * 2) // Complex output (real, imag pairs)
+  // เตรียมข้อมูล output (จำนวนจริงและจำนวนจินตภาพ)
+  const output = new Float64Array(nextPow2 * 2)
 
-  // Perform FFT
+  // ทำการแปลง FFT
   fft.realTransform(output, input)
 
-  // Calculate magnitude and frequency
+  // คำนวณขนาดและความถี่
   const n = timeData.length
   const halfLength = n
   const magnitude: number[] = []
   const frequency: number[] = []
 
-  // Process the first half of the FFT result (up to Nyquist frequency)
+  // ประมวลผลครึ่งแรกของผลลัพธ์ FFT (ถึงความถี่ Nyquist)
   for (let i = 0; i < halfLength; i++) {
-    // Get real and imaginary parts
+    // ดึงส่วนจริงและส่วนจินตภาพ
     const real = output[i * 2]
     const imag = output[i * 2 + 1]
 
-    // Calculate magnitude using the Python formula: 2.56 / n * abs(fft_res)
+    // คำนวณขนาดโดยใช้สูตร: 2.56 / n * abs(fft_res)
     const abs = Math.sqrt(real * real + imag * imag)
     magnitude.push((2.56 / n) * abs)
 
-    // Calculate frequency
+    // คำนวณความถี่
     frequency.push((i * SAMPLING_RATE) / n)
   }
 
@@ -131,9 +137,110 @@ interface SensorLastData {
   }
 }
 
+// ฟังก์ชันคำนวณสถิติการสั่นสะเทือน
+function calculateVibrationStats(x: number[], y: number[], z: number[]) {
+  // แปลงค่า ADC เป็น G
+  const xG = x.map((adc) => adcToAccelerationG(adc))
+  const yG = y.map((adc) => adcToAccelerationG(adc))
+  const zG = z.map((adc) => adcToAccelerationG(adc))
+
+  // คำนวณค่า RMS (Root Mean Square)
+  const rmsX = Math.sqrt(xG.reduce((sum, val) => sum + val * val, 0) / xG.length)
+  const rmsY = Math.sqrt(yG.reduce((sum, val) => sum + val * val, 0) / yG.length)
+  const rmsZ = Math.sqrt(zG.reduce((sum, val) => sum + val * val, 0) / zG.length)
+  const rmsTotal = Math.sqrt((rmsX * rmsX + rmsY * rmsY + rmsZ * rmsZ) / 3)
+
+  // คำนวณค่า Peak
+  const peakX = Math.max(...xG.map(Math.abs))
+  const peakY = Math.max(...yG.map(Math.abs))
+  const peakZ = Math.max(...zG.map(Math.abs))
+  const peakTotal = Math.max(peakX, peakY, peakZ)
+
+  // กำหนดสถานะตามค่า RMS
+  const status = rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal"
+
+  return {
+    rms: rmsTotal.toFixed(3),
+    peak: peakTotal.toFixed(3),
+    status,
+  }
+}
+
+// ฟังก์ชันเตรียมข้อมูลสำหรับกราฟ
+function prepareChartData(
+  rawAxisData: number[],
+  selectedUnit: string,
+  timeInterval: number
+): {
+  timeData: any;
+  freqData: any;
+  yAxisLabel: string;
+} {
+  // สร้างป้ายเวลาสำหรับกราฟ
+  const n = rawAxisData.length
+  const timeLabels = Array.from({ length: n }, (_, i) => (i * timeInterval).toFixed(2))
+
+  // ประมวลผลข้อมูลตามหน่วยที่เลือก
+  let processedData: number[]
+  let yAxisLabel: string
+
+  if (selectedUnit === "Acceleration (G)") {
+    processedData = rawAxisData.map((adc) => adcToAccelerationG(adc))
+    yAxisLabel = "Acceleration (G)"
+  } else if (selectedUnit === "Acceleration (mm/s²)") {
+    processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
+    yAxisLabel = "Acceleration (mm/s²)"
+  } else {
+    const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
+    console.log(accelerations, "accelerations before velocity");
+    processedData = accelerationToVelocity(accelerations, timeInterval)
+    yAxisLabel = "Velocity (mm/s)"
+  }
+
+  // สร้างข้อมูลสำหรับกราฟโดเมนเวลา
+  const timeChartData = {
+    labels: timeLabels,
+    datasets: [
+      {
+        label: yAxisLabel,
+        data: processedData,
+        borderColor: "rgb(75, 192, 192)",
+        backgroundColor: "rgba(75, 192, 192, 0.1)",
+        tension: 0.1,
+        pointRadius: 0,
+      },
+    ],
+  }
+
+  // คำนวณ FFT สำหรับโดเมนความถี่
+  const { magnitude, frequency } = calculateFFT(processedData)
+
+  const freqChartData = {
+    labels: frequency,
+    datasets: [
+      {
+        label: `${yAxisLabel} Magnitude`,
+        data: magnitude,
+        borderColor: "rgb(75, 192, 192)",
+        backgroundColor: "rgba(75, 192, 192, 0.1)",
+        tension: 0.1,
+        pointRadius: 0,
+      },
+    ],
+  }
+
+  return {
+    timeData: timeChartData,
+    freqData: freqChartData,
+    yAxisLabel,
+  }
+}
+
 export default function SensorDetailPage() {
   const router = useRouter()
   const params = useParams() as { id: string }
+  
+  // สถานะของคอมโพเนนต์
   const [sensor, setSensor] = useState<any>(null)
   const [sensorLastData, setSensorLastData] = useState<SensorLastData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -146,7 +253,7 @@ export default function SensorDetailPage() {
     status: "Normal",
   })
 
-  // Update the fetchSensorLastData function to handle the vibration data arrays
+  // ฟังก์ชันดึงข้อมูลล่าสุดจากเซ็นเซอร์
   const fetchSensorLastData = async (sensorId: string) => {
     try {
       const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/last-data`, {
@@ -159,7 +266,6 @@ export default function SensorDetailPage() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
-      console.log("Fetched sensor data:", data)
       setSensorLastData(data)
       return data
     } catch (error) {
@@ -169,18 +275,18 @@ export default function SensorDetailPage() {
     }
   }
 
+  // ฟังก์ชันดึงข้อมูลพื้นฐานของเซ็นเซอร์
   const fetchSensor = async () => {
     try {
-      // Fetch sensor basic info
+      // ดึงข้อมูลพื้นฐานของเซ็นเซอร์
       const data = await getSensorById(params.id)
-
-      // Fetch real-time sensor data
+      // ดึงข้อมูลล่าสุดจากเซ็นเซอร์
       const lastData = await fetchSensorLastData(params.id)
 
       if (data) {
         setSensor(data)
       } else if (lastData) {
-        // Create sensor from API data if not found in our database
+        // สร้างข้อมูลเซ็นเซอร์จาก API ถ้าไม่พบในฐานข้อมูล
         setSensor({
           id: params.id,
           name: lastData.name,
@@ -197,7 +303,7 @@ export default function SensorDetailPage() {
           installationDate: "2025-04-26",
         })
       } else {
-        // Create a fallback sensor if not found
+        // สร้างข้อมูลเซ็นเซอร์เริ่มต้นถ้าไม่พบข้อมูล
         setSensor({
           id: params.id,
           name: `Sensor ${params.id.substring(0, 8)}`,
@@ -217,7 +323,7 @@ export default function SensorDetailPage() {
     } catch (error) {
       console.error("Error fetching sensor:", error)
       setError("Failed to fetch sensor data")
-      // Create a fallback sensor on error
+      // สร้างข้อมูลเซ็นเซอร์เริ่มต้นเมื่อเกิดข้อผิดพลาด
       setSensor({
         id: params.id,
         name: `Sensor ${params.id.substring(0, 8)}`,
@@ -238,44 +344,22 @@ export default function SensorDetailPage() {
     }
   }
 
+  // ดึงข้อมูลเมื่อคอมโพเนนต์โหลด
   useEffect(() => {
     fetchSensor()
   }, [params.id])
 
+  // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
-    // Calculate vibration statistics when sensor data changes
     if (sensorLastData?.data) {
       const { x, y, z } = sensorLastData.data
 
-      // Check if we have array data
+      // ตรวจสอบว่ามีข้อมูลอาร์เรย์หรือไม่
       if (Array.isArray(x) && Array.isArray(y) && Array.isArray(z) && x.length > 0) {
-        // Convert ADC values to G
-        const xG = x.map((adc) => adcToAccelerationG(adc))
-        const yG = y.map((adc) => adcToAccelerationG(adc))
-        const zG = z.map((adc) => adcToAccelerationG(adc))
-
-        // Calculate RMS
-        const rmsX = Math.sqrt(xG.reduce((sum, val) => sum + val * val, 0) / xG.length)
-        const rmsY = Math.sqrt(yG.reduce((sum, val) => sum + val * val, 0) / yG.length)
-        const rmsZ = Math.sqrt(zG.reduce((sum, val) => sum + val * val, 0) / zG.length)
-        const rmsTotal = Math.sqrt((rmsX * rmsX + rmsY * rmsY + rmsZ * rmsZ) / 3)
-
-        // Calculate peak
-        const peakX = Math.max(...xG.map(Math.abs))
-        const peakY = Math.max(...yG.map(Math.abs))
-        const peakZ = Math.max(...zG.map(Math.abs))
-        const peakTotal = Math.max(peakX, peakY, peakZ)
-
-        // Determine status
-        const status = rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal"
-
-        setVibrationStats({
-          rms: rmsTotal.toFixed(3),
-          peak: peakTotal.toFixed(3),
-          status,
-        })
+        const stats = calculateVibrationStats(x, y, z)
+        setVibrationStats(stats)
       } else {
-        // Use single values if arrays are not available
+        // ใช้ค่าเดี่ยวถ้าไม่มีข้อมูลอาร์เรย์
         const xG = typeof x === "number" ? x : 0
         const yG = typeof y === "number" ? y : 0
         const zG = typeof z === "number" ? z : 0
@@ -292,6 +376,48 @@ export default function SensorDetailPage() {
       }
     }
   }, [sensorLastData])
+
+  // ฟังก์ชันเตรียมข้อมูลสำหรับกราฟ
+  function prepareVibrationData(): {
+    hasData: boolean;
+    timeData: any | null;
+    freqData: any | null;
+    yAxisLabel?: string;
+  } {
+    // ตรวจสอบว่ามีข้อมูลการสั่นสะเทือนจริงหรือไม่
+    if (
+      !sensorLastData?.data ||
+      !Array.isArray(sensorLastData.data.x) ||
+      !Array.isArray(sensorLastData.data.y) ||
+      !Array.isArray(sensorLastData.data.z) ||
+      sensorLastData.data.x.length === 0
+    ) {
+      return {
+        hasData: false,
+        timeData: null,
+        freqData: null,
+      }
+    }
+
+    // เลือกข้อมูลตามแกนที่เลือก
+    const rawAxisData =
+      selectedAxis === "H-axis"
+        ? sensorLastData.data.x
+        : selectedAxis === "V-axis"
+          ? sensorLastData.data.y
+          : sensorLastData.data.z
+
+    // คำนวณช่วงเวลาตามอัตราการสุ่มตัวอย่าง
+    const timeInterval = 1 / SAMPLING_RATE * 2.56
+
+    // เตรียมข้อมูลสำหรับกราฟ
+    const chartData = prepareChartData(rawAxisData, selectedUnit, timeInterval)
+
+    return {
+      hasData: true,
+      ...chartData,
+    }
+  }
 
   if (loading) {
     return (
@@ -328,97 +454,6 @@ export default function SensorDetailPage() {
   const safeY = Number(currentData.y) || 0
   const safeZ = Number(currentData.z) || 0
   const safeBattery = Number(currentData.battery) || 0
-
-  // Function to prepare vibration data for charts
-  const prepareVibrationData = () => {
-    // Check if we have real vibration data
-    if (
-      !sensorLastData?.data ||
-      !Array.isArray(sensorLastData.data.x) ||
-      !Array.isArray(sensorLastData.data.y) ||
-      !Array.isArray(sensorLastData.data.z) ||
-      sensorLastData.data.x.length === 0
-    ) {
-      return {
-        hasData: false,
-        timeData: null,
-        freqData: null,
-      }
-    }
-
-    // Get the appropriate axis data based on selection
-    const rawAxisData =
-      selectedAxis === "H-axis"
-        ? sensorLastData.data.x
-        : selectedAxis === "V-axis"
-          ? sensorLastData.data.y
-          : sensorLastData.data.z
-
-    // Calculate time interval based on sampling rate
-    const timeInterval = 1 / SAMPLING_RATE
-    const n = rawAxisData.length
-    const timeLabels = Array.from({ length: n }, (_, i) => (i * timeInterval).toFixed(4))
-
-    // Process data based on selected unit
-    let processedData: number[]
-    let yAxisLabel: string
-
-    if (selectedUnit === "Acceleration (G)") {
-      // Convert ADC to Acceleration (G)
-      processedData = rawAxisData.map((adc) => adcToAccelerationG(adc))
-      yAxisLabel = "Acceleration (G)"
-    } else if (selectedUnit === "Acceleration (mm/s²)") {
-      // Convert ADC to Acceleration (G) then to mm/s²
-      processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
-      yAxisLabel = "Acceleration (mm/s²)"
-    } else {
-      // Velocity (mm/s)
-      // Convert ADC to Acceleration (G) then to mm/s² then to Velocity
-      const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
-      processedData = accelerationToVelocity(accelerations, timeInterval)
-      yAxisLabel = "Velocity (mm/s)"
-    }
-
-    // Create time domain chart data
-    const timeChartData = {
-      labels: timeLabels,
-      datasets: [
-        {
-          label: yAxisLabel,
-          data: processedData,
-          borderColor: "rgb(75, 192, 192)",
-          backgroundColor: "rgba(75, 192, 192, 0.1)",
-          tension: 0.1,
-          pointRadius: 0,
-        },
-      ],
-    }
-
-    // Calculate FFT for frequency domain (using fft.js)
-    const { magnitude, frequency } = calculateFFT(processedData)
-
-    // Create frequency domain chart data
-    const freqChartData = {
-      labels: frequency,
-      datasets: [
-        {
-          label: `${yAxisLabel} Magnitude`,
-          data: magnitude,
-          borderColor: "rgb(75, 192, 192)",
-          backgroundColor: "rgba(75, 192, 192, 0.1)",
-          tension: 0.1,
-          pointRadius: 0,
-        },
-      ],
-    }
-
-    return {
-      hasData: true,
-      timeData: timeChartData,
-      freqData: freqChartData,
-      yAxisLabel,
-    }
-  }
 
   const vibrationData = prepareVibrationData()
 
@@ -497,11 +532,6 @@ export default function SensorDetailPage() {
       },
     },
   }
-
-  // Format vibration values from real data
-  const vibrationH = safeX.toFixed(2)
-  const vibrationV = safeY.toFixed(2)
-  const vibrationA = safeZ.toFixed(2)
 
   return (
     <div className="min-h-screen bg-black text-white">

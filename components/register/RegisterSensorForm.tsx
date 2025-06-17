@@ -16,14 +16,20 @@ import { registerSensor } from "@/lib/data/register"
 import { getMachines } from "@/lib/data/machines"
 import type { Machine } from "@/lib/types"
 
-// Form schema with validation
+// Extend the form schema to include new fields
 const formSchema = z.object({
   serialNumber: z
     .string()
     .min(4, { message: "Serial number must be at least 4 characters" })
     .max(20, { message: "Serial number must be less than 20 characters" }),
-  machineId: z.string({ required_error: "Please select a machine" }),
-  location: z.string().optional(),
+  machineClass: z.string({ required_error: "Please select a machine class" }),
+  maxFrequency: z.string().min(1, { message: "Please enter maximum frequency" }),
+  lor: z.string({ required_error: "Please select LOR" }),
+  gScale: z.string({ required_error: "Please select G-scale" }),
+  xAxis: z.string({ required_error: "Please select X-axis direction" }),
+  yAxis: z.string({ required_error: "Please select Y-axis direction" }),
+  zAxis: z.string({ required_error: "Please select Z-axis direction" }),
+  timeInterval: z.string().min(1, { message: "Please enter time interval" }),
   notes: z.string().optional(),
 })
 
@@ -38,8 +44,14 @@ export default function RegisterSensorForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       serialNumber: "",
-      machineId: "",
-      location: "",
+      machineClass: "",
+      maxFrequency: "",
+      lor: "",
+      gScale: "",
+      xAxis: "",
+      yAxis: "",
+      zAxis: "",
+      timeInterval: "",
       notes: "",
     },
   })
@@ -95,106 +107,224 @@ export default function RegisterSensorForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Register New Sensor</CardTitle>
-        <CardDescription>Add a new sensor to the monitoring system</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="serialNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Serial Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. S-1234" {...field} />
-                  </FormControl>
-                  <FormDescription>Enter the sensor's unique serial number</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="machineId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Machine</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a machine" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {machines.map((machine) => (
-                        <SelectItem key={machine.id} value={machine.id}>
-                          {machine.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>Select the machine this sensor will monitor</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. North side of machine" {...field} />
-                  </FormControl>
-                  <FormDescription>Specific location on the machine (optional)</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Additional information" {...field} />
-                  </FormControl>
-                  <FormDescription>Any additional information about this sensor (optional)</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Registering...
-                </>
-              ) : (
-                "Register Sensor"
-              )}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={() => router.push("/")}>
-          Cancel
-        </Button>
-        <Button variant="outline" onClick={() => form.reset()}>
-          Reset Form
-        </Button>
-      </CardFooter>
-    </Card>
+    <div className="flex flex-col md:flex-row gap-8">
+      <Card className="flex-1">
+        <CardHeader>
+          <CardTitle>Register New Sensor</CardTitle>
+          <CardDescription>Add a new sensor to the monitoring system</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="serialNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Serial Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. S-1234" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="machineClass"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Machine class</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select class" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="small">Small Machines</SelectItem>
+                          <SelectItem value="medium">Medium Machines</SelectItem>
+                          <SelectItem value="largeRigid">Large rigid Machines</SelectItem>
+                          <SelectItem value="largeSoft">Large soft Machines</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="maxFrequency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Maximum frequency (Hz)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 3200" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>LOR</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select LOR" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="200">200</SelectItem>
+                          <SelectItem value="400">400</SelectItem>
+                          <SelectItem value="800">800</SelectItem>
+                          <SelectItem value="1600">1600</SelectItem>
+                          <SelectItem value="3200">3200</SelectItem>
+                          <SelectItem value="6400">6400</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gScale"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>G-scale</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select G-scale" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="2">2 G</SelectItem>
+                          <SelectItem value="4">4 G</SelectItem>
+                          <SelectItem value="8">8 G</SelectItem>
+                          <SelectItem value="16">16 G</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="xAxis"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>X-axis</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="vertical">Vertical</SelectItem>
+                          <SelectItem value="horizontal">Horizontal</SelectItem>
+                          <SelectItem value="axial">Axial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="yAxis"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Y-axis</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="vertical">Vertical</SelectItem>
+                          <SelectItem value="horizontal">Horizontal</SelectItem>
+                          <SelectItem value="axial">Axial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="zAxis"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Z-axis</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="vertical">Vertical</SelectItem>
+                          <SelectItem value="horizontal">Horizontal</SelectItem>
+                          <SelectItem value="axial">Axial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="timeInterval"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time Interval</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 20 ms" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Note</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Additional information" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  "Register Sensor"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => router.push("/")}>Cancel</Button>
+          <Button variant="outline" onClick={() => form.reset()}>Reset Form</Button>
+        </CardFooter>
+      </Card>
+    </div>
   )
 }
