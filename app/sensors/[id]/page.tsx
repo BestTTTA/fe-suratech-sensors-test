@@ -688,7 +688,22 @@ export default function SensorDetailPage() {
                   <DropdownMenuItem
                     key={datetime}
                     className="text-white hover:bg-gray-800"
-                    onClick={() => setSelectedDatetime(datetime)}
+                    onClick={async () => {
+                      setSelectedDatetime(datetime)
+                      try {
+                        const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${params.id}/last-data?datetime=${encodeURIComponent(datetime)}`, {
+                          headers: { 'Accept': 'application/json' }
+                        })
+                        if (response.ok) {
+                          const data = await response.json()
+                          setSensorLastData(data)
+                        } else {
+                          setError('Failed to fetch sensor data for selected datetime')
+                        }
+                      } catch (e) {
+                        setError('Failed to fetch sensor data for selected datetime')
+                      }
+                    }}
                   >
                     {formatDateTime(datetime)}
                   </DropdownMenuItem>
