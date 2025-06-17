@@ -184,6 +184,7 @@ function prepareChartData(
   rmsValue?: string;
   peakValue?: string;
   peakToPeakValue?: string;
+  topPeaks?: { peak: number; rms: string; frequency: string }[];
 } {
   // สร้างป้ายเวลาสำหรับกราฟ
   const n = rawAxisData.length
@@ -242,15 +243,13 @@ function prepareChartData(
   // คำนวณ FFT สำหรับโดเมนความถี่
   const { magnitude, frequency } = calculateFFT(processedData)
 
-  // Now you can use magnitude
-  const maxMagnitude = Math.max(...magnitude)
-
   // Remove zero frequency (DC component)
   const freqLabels = frequency.slice(1)
   const freqMagnitude = magnitude.slice(1)
 
   // Highlight top 5 peaks with red dots
   let pointBackgroundColor = new Array(freqMagnitude.length).fill('rgba(75, 192, 192, 0.5)')
+  let topPeaks: { peak: number; rms: string; frequency: string }[] = []
   if (freqMagnitude.length > 0) {
     // Find indices of top 5 peaks
     const topIndices = [...freqMagnitude.keys()]
@@ -259,6 +258,14 @@ function prepareChartData(
     topIndices.forEach(idx => {
       pointBackgroundColor[idx] = 'red'
     })
+
+
+    // Prepare topPeaks array for the table
+    topPeaks = topIndices.map(idx => ({
+      peak: freqMagnitude[idx],
+      rms: (freqMagnitude[idx] * 0.707).toFixed(2),
+      frequency: String(freqLabels[idx])
+    }))
   }
 
   const freqChartData = {
@@ -283,6 +290,7 @@ function prepareChartData(
     rmsValue,
     peakValue,
     peakToPeakValue,
+    topPeaks,
   }
 }
 
@@ -513,6 +521,7 @@ export default function SensorDetailPage() {
     rmsValue?: string;
     peakValue?: string;
     peakToPeakValue?: string;
+    topPeaks?: { peak: number; rms: string; frequency: string }[];
   } {
     // ตรวจสอบว่ามีข้อมูลการสั่นสะเทือนจริงหรือไม่
     if (
@@ -848,7 +857,7 @@ export default function SensorDetailPage() {
             </Card>
             <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
-                <h3 className="text-gray-400 mb-2">Horizontal</h3>
+                <h3 className="text-white mb-2">Horizontal</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
@@ -867,7 +876,7 @@ export default function SensorDetailPage() {
             </Card>
             <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
-                <h3 className="text-gray-400 mb-2">Vertical</h3>
+                <h3 className="text-white mb-2">Vertical</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
@@ -886,7 +895,7 @@ export default function SensorDetailPage() {
             </Card>
             <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
-                <h3 className="text-gray-400 mb-2">Axial</h3>
+                <h3 className="text-white mb-2">Axial</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
@@ -961,7 +970,7 @@ export default function SensorDetailPage() {
                 return (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
+                    <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
                         <h4 className="text-xl font-medium mb-6">Overall Statistics</h4>
                         <div className="space-y-6">
                           <div className="flex justify-between items-center">
@@ -978,48 +987,25 @@ export default function SensorDetailPage() {
                           </div>
                         </div>
                       </div>
-
                       <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          <div className="text-center font-medium">Axis</div>
-                          <div className="text-center font-medium">Value (Avg)</div>
-                          <div className="text-center font-medium">Status</div>
-                        </div>
-                        <div className="space-y-4">
-                          {["H-axis", "V-axis", "A-axis"].map((axis, index) => {
-                            const axisData =
-                              axis === "H-axis"
-                                ? sensorLastData?.data?.x || []
-                                : axis === "V-axis"
-                                  ? sensorLastData?.data?.y || []
-                                  : sensorLastData?.data?.z || []
-
-                            const absValues = axisData.map(Math.abs)
-                            const sum = absValues.reduce((acc, val) => acc + val, 0)
-                            const avgValue = (sum / absValues.length / scaleFactor).toFixed(2)
-
-                            // Determine status based on average value
-                            const axisAvg = sum / absValues.length / scaleFactor
-                            const status = axisAvg > 0.8 ? "High" : axisAvg > 0.5 ? "Med" : "Low"
-                            const statusClass =
-                              axisAvg > 0.8
-                                ? "bg-red-900 text-red-300"
-                                : axisAvg > 0.5
-                                  ? "bg-yellow-900 text-yellow-300"
-                                  : "bg-green-900 text-green-300"
-
-                            return (
-                              <div key={axis} className="grid grid-cols-3 gap-4">
-                                <div className="text-center">
-                                  {axis.split("-")[0]} ({axis.charAt(0)})
-                                </div>
-                                <div className="text-center">{avgValue}G</div>
-                                <div className="text-center">
-                                  <span className={`px-2 py-1 text-xs rounded-full ${statusClass}`}>{status}</span>
-                                </div>
-                              </div>
-                            )
-                          })}
+                        <h4 className="text-xl font-medium mb-6">Top 5 Frequency Peaks</h4>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-center table-fixed">
+                            <thead>
+                              <tr>
+                                <th className="w-1/2 px-4 py-2">RMS</th>
+                                <th className="w-1/2 px-4 py-2">Frequency</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {vibrationData.topPeaks && vibrationData.topPeaks.map((row, i) => (
+                                <tr key={i}>
+                                  <td className="w-1/2 px-4 py-2">{row.rms}</td>
+                                  <td className="w-1/2 px-4 py-2">{row.frequency} Hz</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     </div>
