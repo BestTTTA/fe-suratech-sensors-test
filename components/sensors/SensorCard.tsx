@@ -28,6 +28,9 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
   const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
 
+  // Use latestReading.timestamp (from last_data.datetime) for last updated time
+  const displayLastUpdated = latestReading?.timestamp || safeLastUpdated;
+
   // Check if this is a real API sensor (has specific characteristics)
   const isApiSensor = sensor?.model?.includes("Model-API-") || false
 
@@ -164,7 +167,7 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
         </div>
 
         {/* Timestamp */}
-        <div className="text-xs text-black mb-2">{formatDateTime(safeLastUpdated)}</div>
+        <div className="text-xs text-black mb-2">{formatDateTime(displayLastUpdated)}</div>
 
         {/* Bottom Row - Icons and Temperature */}
         <div className="flex justify-between items-center">

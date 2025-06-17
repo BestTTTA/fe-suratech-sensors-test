@@ -29,26 +29,26 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 // ฟังก์ชันสำหรับแปลงค่า ADC เป็นค่า Acceleration (G)
 // ADC คือค่าที่ได้จากเซ็นเซอร์แบบดิจิตอล (0-1023)
 // range คือช่วงการวัดของเซ็นเซอร์ (±2G, ±4G, ±8G, ±16G)
-function adcToAccelerationG(adcValue: number, range = 2): number {
+function adcToAccelerationG(adcValue: number, range = 16): number {
   const offset = 512 // ค่า offset ของเซ็นเซอร์
   let sensitivity: number
 
   // กำหนดค่า sensitivity ตามช่วงการวัด
   switch (range) {
     case 2:
-      sensitivity = 17367 // ±2G
+      sensitivity = 16384 // ±2G
       break
     case 4:
-      sensitivity = 8684  // ±4G
+      sensitivity = 8192  // ±4G
       break
     case 8:
-      sensitivity = 4342  // ±8G
+      sensitivity = 4096  // ±8G
       break
     case 16:
-      sensitivity = 2171  // ±16G
+      sensitivity = 2048  // ±16G
       break
     default:
-      sensitivity = 17367 // ค่าเริ่มต้น ±2G
+      sensitivity = 16384 // ค่าเริ่มต้น ±2G
   }
 
   return (adcValue - offset) / sensitivity
@@ -457,7 +457,7 @@ export default function SensorDetailPage() {
           : sensorLastData.data.z
 
     // คำนวณช่วงเวลาตามอัตราการสุ่มตัวอย่าง
-    const timeInterval = 1 / SAMPLING_RATE * 2.56
+    const timeInterval = 1 / SAMPLING_RATE;
 
     // เตรียมข้อมูลสำหรับกราฟ
     const chartData = prepareChartData(rawAxisData, selectedUnit, timeInterval)
@@ -504,7 +504,7 @@ export default function SensorDetailPage() {
   const vibrationData = prepareVibrationData()
 
   // Prepare stats for each axis
-  const timeInterval = 1 / SAMPLING_RATE * 2.56;
+  const timeInterval = 1 / SAMPLING_RATE;
   const xStats = getAxisStats(sensorLastData?.data?.x || [], timeInterval);
   const yStats = getAxisStats(sensorLastData?.data?.y || [], timeInterval);
   const zStats = getAxisStats(sensorLastData?.data?.z || [], timeInterval);
