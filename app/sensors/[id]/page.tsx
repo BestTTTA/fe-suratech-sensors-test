@@ -273,8 +273,8 @@ function getAxisStats(axisData: number[], timeInterval: number) {
   }
 
   return {
-    accelRMS: accelRMS.toFixed(3),
-    velocityRMS: velocityRMS.toFixed(3),
+    accelRMS: accelRMS.toFixed(2),
+    velocityRMS: velocityRMS.toFixed(2),
     dominantFreq: dominantFreq ? dominantFreq.toFixed(2) : "0.00"
   };
 }
