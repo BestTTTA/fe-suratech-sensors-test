@@ -23,6 +23,7 @@ import {
 } from "chart.js"
 // Import fft.js
 import FFT from "fft.js"
+import { log } from "console"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -65,18 +66,17 @@ function accelerationGToMmPerSecSquared(accelerationG: number): number {
 function accelerationToVelocity(accelerations: number[], timeInterval: number): number[] {
   const velocities: number[] = [0] // ค่าเริ่มต้นความเร็วเป็น 0
 
-  console.log(accelerations, "accelerations after velocity");
   for (let i = 0; i < accelerations.length - 1; i++) {
     const velocity = 0.5 * timeInterval * (accelerations[i] + accelerations[i + 1])
-    velocities.push(velocities[velocities.length - 1] + velocity)
+    velocities.push(velocity)
   }
 
   return velocities
 }
 
 // อัตราการสุ่มตัวอย่างข้อมูล (Hz)
-const SAMPLING_RATE = 5000
-const MAX_FREQ = SAMPLING_RATE / 2
+const SAMPLING_RATE = 25600
+const MAX_FREQ = SAMPLING_RATE / 2.56
 
 // คำนวณ FFT (Fast Fourier Transform) เพื่อวิเคราะห์ความถี่
 // FFT คือการแปลงสัญญาณจากโดเมนเวลาเป็นโดเมนความถี่
@@ -101,7 +101,7 @@ function calculateFFT(timeData: number[]): { magnitude: number[]; frequency: num
     fft.realTransform(output, input)
 
     // คำนวณขนาดและความถี่
-    const n = timeData.length
+    const n = timeData.length / 2.56
     const magnitude: number[] = []
     const frequency: number[] = []
 
@@ -199,10 +199,13 @@ function prepareChartData(
   } else if (selectedUnit === "Acceleration (mm/s²)") {
     processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
     yAxisLabel = "mm/s²"
+    console.log(processedData, "Acceleration (mm/s²)");
+    
   } else {
     const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
     processedData = accelerationToVelocity(accelerations, timeInterval)
     yAxisLabel = "mm/s"
+    console.log(processedData, "Velocity (mm/s)");
   }
 
   // Calculate Overall Statistics in selected unit
@@ -238,6 +241,9 @@ function prepareChartData(
 
   // คำนวณ FFT สำหรับโดเมนความถี่
   const { magnitude, frequency } = calculateFFT(processedData)
+
+  // Now you can use magnitude
+  const maxMagnitude = Math.max(...magnitude)
 
   // Remove zero frequency (DC component)
   const freqLabels = frequency.slice(1)
@@ -282,27 +288,37 @@ function prepareChartData(
 
 // Helper function to get stats for each axis
 function getAxisStats(axisData: number[], timeInterval: number) {
-  // Acceleration (G)
-  const accelG = axisData.map(adc => adcToAccelerationG(adc));
-  const accelRMS = accelG.length > 0 ? Math.sqrt(accelG.reduce((sum, val) => sum + val * val, 0) / accelG.length) : 0;
 
-  // Velocity (mm/s)
-  const accelMM = accelG.map(accelerationGToMmPerSecSquared);
-  const velocity = accelerationToVelocity(accelMM, timeInterval);
-  const velocityRMS = velocity.length > 0 ? Math.sqrt(velocity.reduce((sum, val) => sum + val * val, 0) / velocity.length) : 0;
 
-  // Frequency (Hz)
-  const { magnitude, frequency } = calculateFFT(accelG);
-  let dominantFreq = 0;
-  if (magnitude.length > 0) {
-    const maxIdx = magnitude.indexOf(Math.max(...magnitude));
-    dominantFreq = frequency[maxIdx];
-  }
+  const processedData = axisData.map(adc => adcToAccelerationG(adc));
+  const accelG = processedData.map(adc => adcToAccelerationG(adc));
+  const velocity = accelerationToVelocity(accelG, timeInterval)
+
+  const { magnitude, frequency } = calculateFFT(processedData)
+  
+  const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity)
+
+  //find max of magnitude and index
+  const cutMagnitude = magnitude.slice(1)
+  const maxMagnitude = Math.max(...cutMagnitude)
+  const indexMagnitude = magnitude.indexOf(maxMagnitude)
+  
+
+
+  //find max of velocity and index
+  const cutVelocityMagnitude = velocityMagnitude.slice(1)
+  const maxVelocity = Math.max(...cutVelocityMagnitude)
+  const velocityIndex = velocityMagnitude.indexOf(maxVelocity)
+
+
+
+
+ 
 
   return {
-    accelRMS: accelRMS.toFixed(2),
-    velocityRMS: velocityRMS.toFixed(2),
-    dominantFreq: dominantFreq ? dominantFreq.toFixed(2) : "0.00"
+    accelRMS: maxMagnitude.toFixed(2),
+    velocityRMS: maxVelocity.toFixed(2),
+    dominantFreq: velocityFrequency[velocityIndex].toFixed(2)
   };
 }
 
@@ -830,7 +846,7 @@ export default function SensorDetailPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Horizontal</h3>
                 <div className="space-y-1 text-sm">
@@ -849,7 +865,7 @@ export default function SensorDetailPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Vertical</h3>
                 <div className="space-y-1 text-sm">
@@ -868,7 +884,7 @@ export default function SensorDetailPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Axial</h3>
                 <div className="space-y-1 text-sm">
