@@ -209,12 +209,11 @@ function prepareChartData(
   const rms = processedData.length > 0
     ? Math.sqrt(processedData.reduce((sum, val) => sum + val * val, 0) / processedData.length)
     : 0;
-  const peak = processedData.length > 0
-    ? Math.max(...processedData.map(Math.abs))
-    : 0;
-  const peakToPeak = processedData.length > 0
-    ? Math.max(...processedData) - Math.min(...processedData)
-    : 0;
+  // rms / 0.707
+  const peak = rms / 0.707
+
+  // peak * 2
+  const peakToPeak = peak * 2
   const rmsValue = rms.toFixed(3);
   const peakValue = peak.toFixed(3);
   const peakToPeakValue = peakToPeak.toFixed(3);
