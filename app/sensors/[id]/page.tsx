@@ -181,6 +181,9 @@ function prepareChartData(
   timeData: any;
   freqData: any;
   yAxisLabel: string;
+  rmsValue?: string;
+  peakValue?: string;
+  peakToPeakValue?: string;
 } {
   // สร้างป้ายเวลาสำหรับกราฟ
   const n = rawAxisData.length
@@ -192,20 +195,36 @@ function prepareChartData(
 
   if (selectedUnit === "Acceleration (G)") {
     processedData = rawAxisData.map((adc) => adcToAccelerationG(adc))
-    yAxisLabel = "Acceleration (G)"
+    yAxisLabel = "G"
   } else if (selectedUnit === "Acceleration (mm/s²)") {
     processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
-    yAxisLabel = "Acceleration (mm/s²)"
+    yAxisLabel = "mm/s²"
   } else {
     const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
-    console.log(accelerations, "accelerations before velocity");
     processedData = accelerationToVelocity(accelerations, timeInterval)
-    yAxisLabel = "Velocity (mm/s)"
+    yAxisLabel = "mm/s"
   }
+
+  // Calculate Overall Statistics in selected unit
+  const rms = processedData.length > 0
+    ? Math.sqrt(processedData.reduce((sum, val) => sum + val * val, 0) / processedData.length)
+    : 0;
+  const peak = processedData.length > 0
+    ? Math.max(...processedData.map(Math.abs))
+    : 0;
+  const peakToPeak = processedData.length > 0
+    ? Math.max(...processedData) - Math.min(...processedData)
+    : 0;
+  const rmsValue = rms.toFixed(3);
+  const peakValue = peak.toFixed(3);
+  const peakToPeakValue = peakToPeak.toFixed(3);
 
   // สร้างข้อมูลสำหรับกราฟโดเมนเวลา
   const timeChartData = {
     labels: timeLabels,
+    rmsValue,
+    peakValue,
+    peakToPeakValue,
     datasets: [
       {
         label: yAxisLabel,
@@ -256,6 +275,9 @@ function prepareChartData(
     timeData: timeChartData,
     freqData: freqChartData,
     yAxisLabel,
+    rmsValue,
+    peakValue,
+    peakToPeakValue,
   }
 }
 
@@ -432,6 +454,9 @@ export default function SensorDetailPage() {
     timeData: any | null;
     freqData: any | null;
     yAxisLabel?: string;
+    rmsValue?: string;
+    peakValue?: string;
+    peakToPeakValue?: string;
   } {
     // ตรวจสอบว่ามีข้อมูลการสั่นสะเทือนจริงหรือไม่
     if (
@@ -841,11 +866,6 @@ export default function SensorDetailPage() {
 
                 // Scale values for better display
                 const scaleFactor = 1000
-                const rmsValue = (
-                  Math.sqrt(absValues.reduce((acc, val) => acc + val * val, 0) / absValues.length) / scaleFactor
-                ).toFixed(3)
-                const peakValue = (max / scaleFactor).toFixed(3)
-                const peakToPeakValue = ((max - min) / scaleFactor).toFixed(3)
 
                 return (
                   <>
@@ -855,15 +875,15 @@ export default function SensorDetailPage() {
                         <div className="space-y-6">
                           <div className="flex justify-between items-center">
                             <span className="text-gray-400 text-lg">RMS :</span>
-                            <span className="text-lg">{rmsValue} G</span>
+                            <span className="text-lg">{vibrationData.rmsValue} {vibrationData.yAxisLabel}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-gray-400 text-lg">Peak :</span>
-                            <span className="text-lg">{peakValue} G</span>
+                            <span className="text-lg">{vibrationData.peakValue} {vibrationData.yAxisLabel}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-gray-400 text-lg">Peak to Peak :</span>
-                            <span className="text-lg">{peakToPeakValue} G</span>
+                            <span className="text-lg">{vibrationData.peakToPeakValue} {vibrationData.yAxisLabel}</span>
                           </div>
                         </div>
                       </div>
