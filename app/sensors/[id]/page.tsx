@@ -76,6 +76,7 @@ function accelerationToVelocity(accelerations: number[], timeInterval: number): 
 
 // อัตราการสุ่มตัวอย่างข้อมูล (Hz)
 const SAMPLING_RATE = 5000
+const MAX_FREQ = SAMPLING_RATE / 2
 
 // คำนวณ FFT (Fast Fourier Transform) เพื่อวิเคราะห์ความถี่
 // FFT คือการแปลงสัญญาณจากโดเมนเวลาเป็นโดเมนความถี่
@@ -100,12 +101,11 @@ function calculateFFT(timeData: number[]): { magnitude: number[]; frequency: num
 
   // คำนวณขนาดและความถี่
   const n = timeData.length
-  const halfLength = n
   const magnitude: number[] = []
   const frequency: number[] = []
 
   // ประมวลผลครึ่งแรกของผลลัพธ์ FFT (ถึงความถี่ Nyquist)
-  for (let i = 0; i < halfLength; i++) {
+  for (let i = 0; i < n; i++) {
     // ดึงส่วนจริงและส่วนจินตภาพ
     const real = output[i * 2]
     const imag = output[i * 2 + 1]
@@ -115,10 +115,10 @@ function calculateFFT(timeData: number[]): { magnitude: number[]; frequency: num
     magnitude.push((2.56 / n) * abs)
 
     // คำนวณความถี่
-    frequency.push((i * SAMPLING_RATE) / n)
+    frequency.push((i * MAX_FREQ) / n)
   }
 
-  return { magnitude, frequency }
+  return { magnitude, frequency: frequency.map(f => parseFloat(f.toFixed(2))) }
 }
 
 // First, update the SensorLastData interface to properly handle the vibration data arrays

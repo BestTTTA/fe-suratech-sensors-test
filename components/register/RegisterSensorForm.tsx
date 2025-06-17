@@ -1,20 +1,40 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { registerSensor } from "@/lib/data/register"
-import { getMachines } from "@/lib/data/machines"
-import type { Machine } from "@/lib/types"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { getMachines } from "@/lib/data/machines";
+import type { Machine } from "@/lib/types";
 
 // Extend the form schema to include new fields
 const formSchema = z.object({
@@ -23,7 +43,9 @@ const formSchema = z.object({
     .min(4, { message: "Serial number must be at least 4 characters" })
     .max(20, { message: "Serial number must be less than 20 characters" }),
   machineClass: z.string({ required_error: "Please select a machine class" }),
-  maxFrequency: z.string().min(1, { message: "Please enter maximum frequency" }),
+  maxFrequency: z
+    .string()
+    .min(1, { message: "Please enter maximum frequency" }),
   lor: z.string({ required_error: "Please select LOR" }),
   gScale: z.string({ required_error: "Please select G-scale" }),
   xAxis: z.string({ required_error: "Please select X-axis direction" }),
@@ -31,13 +53,13 @@ const formSchema = z.object({
   zAxis: z.string({ required_error: "Please select Z-axis direction" }),
   timeInterval: z.string().min(1, { message: "Please enter time interval" }),
   notes: z.string().optional(),
-})
+});
 
 export default function RegisterSensorForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [machines, setMachines] = useState<Machine[]>([])
-  const router = useRouter()
-  const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const router = useRouter();
+  const { toast } = useToast();
 
   // Initialize form with react-hook-form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -54,64 +76,90 @@ export default function RegisterSensorForm() {
       timeInterval: "",
       notes: "",
     },
-  })
+  });
 
   // Fetch machines for the dropdown
   useState(() => {
     const fetchMachines = async () => {
       try {
-        const fetchedMachines = await getMachines()
-        setMachines(fetchedMachines)
+        const fetchedMachines = await getMachines();
+        setMachines(fetchedMachines);
       } catch (error) {
-        console.error("Error fetching machines:", error)
+        console.error("Error fetching machines:", error);
         toast({
           title: "Error",
           description: "Failed to load machines. Please try again.",
           variant: "destructive",
-        })
+        });
       }
-    }
+    };
 
-    fetchMachines()
-  })
+    fetchMachines();
+  });
 
   // Handle form submission
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      const result = await registerSensor(values)
+      // Map form values to API payload
+      const payload = {
+        serial_number: values.serialNumber,
+        machine_class: values.machineClass,
+        max_frequency: Number(values.maxFrequency),
+        g_scale: Number(values.gScale),
+        lor: Number(values.lor),
+        time_interval: Number(values.timeInterval),
+        x_axis: values.xAxis,
+        y_axis: values.yAxis,
+        z_axis: values.zAxis,
+        note: values.notes || "",
+      };
+
+      const response = await fetch("https://sc.promptlabai.com/suratech/sensors/web-register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       toast({
         title: "Sensor Registered",
-        description: `Sensor ${result.serialNumber} has been successfully registered.`,
-      })
+        description: `Sensor ${values.serialNumber} has been successfully registered.`,
+      });
 
       // Reset form
-      form.reset()
+      form.reset();
 
       // Redirect to the sensors page after a short delay
       setTimeout(() => {
-        router.push("/")
-      }, 2000)
+        router.push("/");
+      }, 2000);
     } catch (error) {
-      console.error("Error registering sensor:", error)
+      console.error("Error registering sensor:", error);
       toast({
         title: "Registration Failed",
         description: "There was an error registering the sensor. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="flex flex-col md:flex-row gap-8">
       <Card className="flex-1">
         <CardHeader>
           <CardTitle>Register New Sensor</CardTitle>
-          <CardDescription>Add a new sensor to the monitoring system</CardDescription>
+          <CardDescription>
+            Add a new sensor to the monitoring system
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -136,7 +184,10 @@ export default function RegisterSensorForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Machine class</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select class" />
@@ -144,9 +195,15 @@ export default function RegisterSensorForm() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="small">Small Machines</SelectItem>
-                          <SelectItem value="medium">Medium Machines</SelectItem>
-                          <SelectItem value="largeRigid">Large rigid Machines</SelectItem>
-                          <SelectItem value="largeSoft">Large soft Machines</SelectItem>
+                          <SelectItem value="medium">
+                            Medium Machines
+                          </SelectItem>
+                          <SelectItem value="largeRigid">
+                            Large rigid Machines
+                          </SelectItem>
+                          <SelectItem value="largeSoft">
+                            Large soft Machines
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -168,11 +225,90 @@ export default function RegisterSensorForm() {
                 />
                 <FormField
                   control={form.control}
+                  name="xAxis"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>X-axis</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="vertical">Vertical</SelectItem>
+                          <SelectItem value="horizontal">Horizontal</SelectItem>
+                          <SelectItem value="axial">Axial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gScale"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>G-scale</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select G-scale" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="2">2 G</SelectItem>
+                          <SelectItem value="4">4 G</SelectItem>
+                          <SelectItem value="8">8 G</SelectItem>
+                          <SelectItem value="16">16 G</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="yAxis"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Y-axis</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="vertical">Vertical</SelectItem>
+                          <SelectItem value="horizontal">Horizontal</SelectItem>
+                          <SelectItem value="axial">Axial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="lor"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>LOR</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select LOR" />
@@ -193,78 +329,14 @@ export default function RegisterSensorForm() {
                 />
                 <FormField
                   control={form.control}
-                  name="gScale"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>G-scale</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select G-scale" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="2">2 G</SelectItem>
-                          <SelectItem value="4">4 G</SelectItem>
-                          <SelectItem value="8">8 G</SelectItem>
-                          <SelectItem value="16">16 G</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="xAxis"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>X-axis</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="vertical">Vertical</SelectItem>
-                          <SelectItem value="horizontal">Horizontal</SelectItem>
-                          <SelectItem value="axial">Axial</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="yAxis"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Y-axis</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="vertical">Vertical</SelectItem>
-                          <SelectItem value="horizontal">Horizontal</SelectItem>
-                          <SelectItem value="axial">Axial</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="zAxis"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Z-axis</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Vertical, Horizontal, Axial" />
@@ -300,7 +372,10 @@ export default function RegisterSensorForm() {
                     <FormItem>
                       <FormLabel>Note</FormLabel>
                       <FormControl>
-                        <Input placeholder="Additional information" {...field} />
+                        <Input
+                          placeholder="Additional information"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -321,10 +396,14 @@ export default function RegisterSensorForm() {
           </Form>
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => router.push("/")}>Cancel</Button>
-          <Button variant="outline" onClick={() => form.reset()}>Reset Form</Button>
+          <Button variant="outline" onClick={() => router.push("/")}>
+            Cancel
+          </Button>
+          <Button variant="outline" onClick={() => form.reset()}>
+            Reset Form
+          </Button>
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }

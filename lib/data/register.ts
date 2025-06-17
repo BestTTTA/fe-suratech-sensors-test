@@ -28,7 +28,6 @@ export async function registerMachine(machineData: {
     manufacturer: machineData.manufacturer || "",
     model: machineData.model || "",
     installationDate: machineData.installationDate ? new Date(machineData.installationDate).getTime() : Date.now(),
-    description: machineData.description || "",
     status: "operational",
     lastMaintenance: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
     nextMaintenance: Date.now() + 60 * 24 * 60 * 60 * 1000, // 60 days from now
@@ -70,6 +69,15 @@ export async function registerSensor(sensorData: {
     status: "ok",
     readings: [],
     maintenanceHistory: [],
+    name: "",
+    model: "",
+    operationalStatus: "running",
+    batteryLevel: 100,
+    connectivity: "online",
+    signalStrength: 100,
+    vibrationH: "normal",
+    vibrationV: "normal",
+    vibrationA: "normal",
   }
 
   // Generate initial readings
