@@ -30,7 +30,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 // ADC คือค่าที่ได้จากเซ็นเซอร์แบบดิจิตอล (0-1023)
 // range คือช่วงการวัดของเซ็นเซอร์ (±2G, ±4G, ±8G, ±16G)
 function adcToAccelerationG(adcValue: number, range = 16): number {
-  const offset = 512 // ค่า offset ของเซ็นเซอร์
+  const offset = 0 // ค่า offset ของเซ็นเซอร์
   let sensitivity: number
 
   // กำหนดค่า sensitivity ตามช่วงการวัด
