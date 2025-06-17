@@ -215,16 +215,33 @@ function prepareChartData(
   // คำนวณ FFT สำหรับโดเมนความถี่
   const { magnitude, frequency } = calculateFFT(processedData)
 
+  // Remove zero frequency (DC component)
+  const freqLabels = frequency.slice(1)
+  const freqMagnitude = magnitude.slice(1)
+
+  // Highlight top 5 peaks with red dots
+  let pointBackgroundColor = new Array(freqMagnitude.length).fill('rgba(75, 192, 192, 0.5)')
+  if (freqMagnitude.length > 0) {
+    // Find indices of top 5 peaks
+    const topIndices = [...freqMagnitude.keys()]
+      .sort((a, b) => freqMagnitude[b] - freqMagnitude[a])
+      .slice(0, 5)
+    topIndices.forEach(idx => {
+      pointBackgroundColor[idx] = 'red'
+    })
+  }
+
   const freqChartData = {
-    labels: frequency,
+    labels: freqLabels,
     datasets: [
       {
         label: `${yAxisLabel} Magnitude`,
-        data: magnitude,
+        data: freqMagnitude,
         borderColor: "rgb(75, 192, 192)",
         backgroundColor: "rgba(75, 192, 192, 0.1)",
         tension: 0.1,
-        pointRadius: 0,
+        pointRadius: 3,
+        pointBackgroundColor,
       },
     ],
   }
@@ -234,6 +251,32 @@ function prepareChartData(
     freqData: freqChartData,
     yAxisLabel,
   }
+}
+
+// Helper function to get stats for each axis
+function getAxisStats(axisData: number[], timeInterval: number) {
+  // Acceleration (G)
+  const accelG = axisData.map(adc => adcToAccelerationG(adc));
+  const accelRMS = accelG.length > 0 ? Math.sqrt(accelG.reduce((sum, val) => sum + val * val, 0) / accelG.length) : 0;
+
+  // Velocity (mm/s)
+  const accelMM = accelG.map(accelerationGToMmPerSecSquared);
+  const velocity = accelerationToVelocity(accelMM, timeInterval);
+  const velocityRMS = velocity.length > 0 ? Math.sqrt(velocity.reduce((sum, val) => sum + val * val, 0) / velocity.length) : 0;
+
+  // Frequency (Hz)
+  const { magnitude, frequency } = calculateFFT(accelG);
+  let dominantFreq = 0;
+  if (magnitude.length > 0) {
+    const maxIdx = magnitude.indexOf(Math.max(...magnitude));
+    dominantFreq = frequency[maxIdx];
+  }
+
+  return {
+    accelRMS: accelRMS.toFixed(3),
+    velocityRMS: velocityRMS.toFixed(3),
+    dominantFreq: dominantFreq ? dominantFreq.toFixed(2) : "0.00"
+  };
 }
 
 export default function SensorDetailPage() {
@@ -450,12 +493,15 @@ export default function SensorDetailPage() {
 
   // Ensure all values are numbers
   const safeTemp = Number(currentData.temperature) || 0
-  const safeX = Number(currentData.x) || 0
-  const safeY = Number(currentData.y) || 0
-  const safeZ = Number(currentData.z) || 0
   const safeBattery = Number(currentData.battery) || 0
 
   const vibrationData = prepareVibrationData()
+
+  // Prepare stats for each axis
+  const timeInterval = 1 / SAMPLING_RATE * 2.56;
+  const xStats = getAxisStats(sensorLastData?.data?.x || [], timeInterval);
+  const yStats = getAxisStats(sensorLastData?.data?.y || [], timeInterval);
+  const zStats = getAxisStats(sensorLastData?.data?.z || [], timeInterval);
 
   const timeChartOptions = {
     responsive: true,
@@ -645,7 +691,7 @@ export default function SensorDetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Battery</span>
-                      <span>{safeBattery}%</span>
+                      <span>{safeBattery.toFixed(1)}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Last Updated</span>
@@ -668,7 +714,7 @@ export default function SensorDetailPage() {
 
         {/* Statistics and Analysis */}
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Temperature Statistics</h3>
@@ -680,11 +726,26 @@ export default function SensorDetailPage() {
             </Card>
             <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-4">
-                <h3 className="text-gray-400 mb-2">Vibration Statistics</h3>
-                <div className="text-2xl font-bold">{vibrationStats.rms}G RMS</div>
-                <div className="text-sm text-gray-500">
-                  Peak: {vibrationStats.peak}G • Status: {vibrationStats.status}
-                </div>
+                <h3 className="text-gray-400 mb-2">Horizontal</h3>
+                <div className="text-sm text-gray-300">Acceleration RMS: <b>{xStats.accelRMS} G</b></div>
+                <div className="text-sm text-gray-300">Velocity RMS: <b>{xStats.velocityRMS} mm/s</b></div>
+                <div className="text-sm text-gray-300">Dominant Frequency: <b>{xStats.dominantFreq} Hz</b></div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gray-900 border-gray-800">
+              <CardContent className="p-4">
+                <h3 className="text-gray-400 mb-2">Vertical</h3>
+                <div className="text-sm text-gray-300">Acceleration RMS: <b>{yStats.accelRMS} G</b></div>
+                <div className="text-sm text-gray-300">Velocity RMS: <b>{yStats.velocityRMS} mm/s</b></div>
+                <div className="text-sm text-gray-300">Dominant Frequency: <b>{yStats.dominantFreq} Hz</b></div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gray-900 border-gray-800">
+              <CardContent className="p-4">
+                <h3 className="text-gray-400 mb-2">Axial</h3>
+                <div className="text-sm text-gray-300">Acceleration RMS: <b>{zStats.accelRMS} G</b></div>
+                <div className="text-sm text-gray-300">Velocity RMS: <b>{zStats.velocityRMS} mm/s</b></div>
+                <div className="text-sm text-gray-300">Dominant Frequency: <b>{zStats.dominantFreq} Hz</b></div>
               </CardContent>
             </Card>
           </div>
@@ -736,8 +797,6 @@ export default function SensorDetailPage() {
                       : sensorLastData?.data?.z || []
 
                 const absValues = axisData.map(Math.abs)
-                const sum = absValues.reduce((acc, val) => acc + val, 0)
-                const avg = sum / absValues.length
                 const max = Math.max(...absValues)
                 const min = Math.min(...absValues)
 
