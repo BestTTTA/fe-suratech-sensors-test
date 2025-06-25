@@ -2,6 +2,9 @@
 
 import { Suspense, useState, useCallback, useEffect, useRef } from "react"
 import SensorGrid from "@/components/sensors/SensorGrid"
+import SensorListView from "@/components/sensors/SensorListView"
+import SensorDotView from "@/components/sensors/SensorDotView"
+import ViewSelector, { ViewMode } from "@/components/sensors/ViewSelector"
 import SensorFilters from "@/components/sensors/SensorFilters"
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton"
 import { Button } from "@/components/ui/button"
@@ -13,6 +16,7 @@ export default function SensorsPage() {
   const [totalSensors, setTotalSensors] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [currentView, setCurrentView] = useState<ViewMode>("grid")
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const hasInitiallyLoaded = useRef(false)
 
@@ -45,6 +49,10 @@ export default function SensorsPage() {
   const handleManualRefresh = useCallback(async () => {
     await updateSensorData()
   }, [updateSensorData])
+
+  const handleViewChange = useCallback((view: ViewMode) => {
+    setCurrentView(view)
+  }, [])
 
   // Initial fetch - only once
   useEffect(() => {
@@ -95,6 +103,21 @@ export default function SensorsPage() {
     hour12: false,
   })
 
+  const renderCurrentView = () => {
+    const commonProps = { onRefresh: () => setLastUpdated(new Date()) }
+    
+    switch (currentView) {
+      case "grid":
+        return <SensorGrid {...commonProps} />
+      case "list":
+        return <SensorListView {...commonProps} />
+      case "dot":
+        return <SensorDotView {...commonProps} />
+      default:
+        return <SensorGrid {...commonProps} />
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -119,6 +142,7 @@ export default function SensorsPage() {
           <div className="text-sm text-gray-400">Last updated: {lastUpdatedTime}</div>
         </div>
         <div className="flex gap-2">
+          <ViewSelector currentView={currentView} onViewChange={handleViewChange} />
           <Button asChild variant="outline" className="border-gray-600 text-white hover:bg-gray-700">
             <Link href="/register" className="flex items-center">
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -136,7 +160,7 @@ export default function SensorsPage() {
 
       <SensorFilters />
       <Suspense fallback={<LoadingSkeleton />}>
-        <SensorGrid onRefresh={() => setLastUpdated(new Date())} />
+        {renderCurrentView()}
       </Suspense>
     </div>
   )

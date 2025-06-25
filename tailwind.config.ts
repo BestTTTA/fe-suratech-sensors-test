@@ -10,6 +10,12 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		gridTemplateColumns: {
+  			'50': 'repeat(50, minmax(0, 1fr))',
+  		},
+  		gridTemplateRows: {
+  			'50': 'repeat(50, minmax(0, 1fr))',
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

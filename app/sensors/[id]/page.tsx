@@ -988,7 +988,7 @@ export default function SensorDetailPage() {
                         </div>
                       </div>
                       <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
-                        <h4 className="text-xl font-medium mb-6">Top 5 Frequency Peaks</h4>
+                        <h4 className="text-xl font-medium mb-6">Top 5 Peaks</h4>
                         <div className="overflow-x-auto">
                           <table className="min-w-full text-center table-fixed">
                             <thead>
