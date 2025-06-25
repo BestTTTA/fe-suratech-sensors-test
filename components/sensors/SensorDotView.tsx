@@ -7,7 +7,6 @@ import { Pagination } from "@mui/material"
 import { createTheme, ThemeProvider } from "@mui/material/styles"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
-import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Create a custom MUI theme for the pagination component
@@ -138,15 +137,15 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
     }
   }
 
-  const getConnectivityColor = (status: string) => {
-    return status === "online" ? "bg-green-500" : "bg-red-500"
+  const getConnectivityBorder = (status: string) => {
+    return status === "online" ? "border-green-500" : "border-red-500"
   }
 
   if (loading && !hasInitiallyLoaded.current) {
     return (
-      <div className="grid grid-cols-50 gap-3">
+      <div className="grid grid-cols-50 gap-2">
         {Array.from({ length: 100 }).map((_, i) => (
-          <div key={i} className="w-8 h-8 bg-gray-800 animate-pulse rounded-full" />
+          <div key={i} className="w-8 h-8 rounded-full bg-gray-800 animate-pulse border border-gray-700" />
         ))}
       </div>
     )
@@ -154,37 +153,29 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-50 gap-3">
-        {sensors.map((sensor) => {
-          const safeReadings = sensor?.readings || []
-          const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
-          const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
+      <TooltipProvider>
+        <div className="grid grid-cols-50 gap-10">
+          {sensors.map((sensor) => {
+            const safeReadings = sensor?.readings || []
+            const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
+            const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
 
-          return (
-            <TooltipProvider key={sensor.id}>
-              <Tooltip>
+            return (
+              <Tooltip key={sensor.id}>
                 <TooltipTrigger asChild>
-                  <Card
-                    className="w-8 h-8 bg-gray-900 border-gray-700 hover:bg-gray-800 transition-colors cursor-pointer p-0"
+                  <div
+                    className={`w-8 h-8 rounded-full flex flex-col items-center justify-center cursor-pointer border border-[1.5px] ${getConnectivityBorder(sensor.connectivity || "offline")} bg-gray-900 hover:bg-gray-800 transition-colors`}
                     onClick={() => handleSensorClick(sensor.id)}
                   >
-                    <CardContent className="p-0 h-full flex flex-col items-center justify-center relative">
-                      {/* Temperature display */}
-                      <div className={`text-xs font-bold ${getTemperatureColor(currentTemp)}`}>
-                        {currentTemp > 0 ? currentTemp : "0"}
-                      </div>
-                      
-                      {/* Vibration dots - positioned at bottom */}
-                      <div className="absolute bottom-0 left-0 right-0 flex justify-center space-x-0.5">
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full`} />
-                      </div>
-                      
-                      {/* Connectivity indicator - top right corner */}
-                      <div className={`absolute top-0 right-0 w-1.5 h-1.5 ${getConnectivityColor(sensor.connectivity || "offline")} rounded-full`} />
-                    </CardContent>
-                  </Card>
+                    <span className={`font-bold text-[10px] ${getTemperatureColor(currentTemp)}`}>
+                      {currentTemp > 0 ? currentTemp : "0"}
+                    </span>
+                    <div className="flex space-x-0.5 mt-0.5">
+                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")}`} />
+                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")}`} />
+                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")}`} />
+                    </div>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white">
                   <div className="space-y-1 text-xs">
@@ -197,24 +188,24 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
                     </div>
                     <div className="flex items-center space-x-1">
                       <span>Status:</span>
-                      <div className={`w-2 h-2 ${getConnectivityColor(sensor.connectivity || "offline")} rounded-full`} />
+                      <div className={`w-2 h-2 ${sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"} rounded-full`} />
                       <span className="text-xs">{sensor.connectivity || "offline"}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <span>Vibration:</span>
                       <div className="flex space-x-0.5">
-                        <div className={`w-1.5 h-1.5 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full`} />
-                        <div className={`w-1.5 h-1.5 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full`} />
-                        <div className={`w-1.5 h-1.5 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full`} />
+                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full`} />
+                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full`} />
+                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full`} />
                       </div>
                     </div>
                   </div>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      </TooltipProvider>
 
       <div className="flex justify-center mt-6">
         <ThemeProvider theme={paginationTheme}>
