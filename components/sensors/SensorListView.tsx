@@ -161,90 +161,195 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center px-4 py-2 bg-gray-800 rounded-lg text-sm font-semibold text-gray-300">
-        <div className="flex-1">Sensor Name</div>
-        <div className="w-20 text-center">Status</div>
-        <div className="w-16 text-center">H</div>
-        <div className="w-16 text-center">V</div>
-        <div className="w-16 text-center">A</div>
-        <div className="w-20 text-center">Temp</div>
-      </div>
+    <div className="space-y-0">
+      {/* 3 Tables Layout */}
+      <div className="grid grid-cols-3 gap-4">
+        {/* Table 1 */}
+        <div className="space-y-0">
+          <div className="flex items-center px-2 py-0.5 bg-gray-800 rounded text-xs font-semibold text-gray-300">
+            <div className="flex-1">Sensor Name</div>
+            <div className="w-12 text-center">Status</div>
+            <div className="w-16 text-center">H</div>
+            <div className="w-16 text-center">V</div>
+            <div className="w-16 text-center">A</div>
+            <div className="w-20 text-center">Temp</div>
+          </div>
+          <div className="space-y-0">
+            {sensors.slice(0, Math.ceil(sensors.length / 3)).map((sensor) => {
+              const safeReadings = sensor?.readings || []
+              const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
+              const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
 
-      {/* Sensor list */}
-      <div className="space-y-1">
-        {sensors.map((sensor) => {
-          const safeReadings = sensor?.readings || []
-          const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
-          const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
-
-          return (
-            <div
-              key={sensor.id}
-              className="flex items-center px-4 py-3 bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer rounded-lg"
-              onClick={() => handleSensorClick(sensor.id)}
-            >
-              {/* Sensor Name */}
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  />
-                  <div>
-                    <div className="font-medium text-white">
-                      {sensor.name || "Unknown Sensor"}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {sensor.model || "Unknown Model"}
+              return (
+                <div
+                  key={sensor.id}
+                  className="flex items-center px-2 py-0.5 bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer rounded text-xs border-b border-gray-800"
+                  onClick={() => handleSensorClick(sensor.id)}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-1">
+                      <div
+                        className={`w-1 h-1 rounded-full ${
+                          sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      />
+                      <div>
+                        <div className="font-medium text-white text-xs">
+                          {sensor.name || "Unknown Sensor"}
+                        </div>
+                      </div>
                     </div>
                   </div>
+                  <div className="w-12 flex justify-center">
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-20 flex justify-center">
+                    <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
+                      {currentTemp > 0 ? currentTemp : "0"}°C
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )
+            })}
+          </div>
+        </div>
 
-              {/* Status */}
-              <div className="w-20 flex justify-center">
-                <Badge className={`${getStatusColor(sensor.operationalStatus || "standby")} text-xs`}>
-                  {sensor.operationalStatus?.charAt(0).toUpperCase() + sensor.operationalStatus?.slice(1) || "Standby"}
-                </Badge>
-              </div>
+        {/* Table 2 */}
+        <div className="space-y-0">
+          <div className="flex items-center px-2 py-0.5 bg-gray-800 rounded text-xs font-semibold text-gray-300">
+            <div className="flex-1">Sensor Name</div>
+            <div className="w-12 text-center">Status</div>
+            <div className="w-16 text-center">H</div>
+            <div className="w-16 text-center">V</div>
+            <div className="w-16 text-center">A</div>
+            <div className="w-20 text-center">Temp</div>
+          </div>
+          <div className="space-y-0">
+            {sensors.slice(Math.ceil(sensors.length / 3), Math.ceil(sensors.length * 2 / 3)).map((sensor) => {
+              const safeReadings = sensor?.readings || []
+              const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
+              const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
 
-              {/* H-axis Vibration */}
-              <div className="w-16 flex justify-center">
-                <div className={`w-3 h-6 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
-              </div>
+              return (
+                <div
+                  key={sensor.id}
+                  className="flex items-center px-2 py-0.5 bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer rounded text-xs border-b border-gray-800"
+                  onClick={() => handleSensorClick(sensor.id)}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-1">
+                      <div
+                        className={`w-1 h-1 rounded-full ${
+                          sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      />
+                      <div>
+                        <div className="font-medium text-white text-xs">
+                          {sensor.name || "Unknown Sensor"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-12 flex justify-center">
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-20 flex justify-center">
+                    <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
+                      {currentTemp > 0 ? currentTemp : "0"}°C
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
-              {/* V-axis Vibration */}
-              <div className="w-16 flex justify-center">
-                <div className={`w-3 h-6 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
-              </div>
+        {/* Table 3 */}
+        <div className="space-y-0">
+          <div className="flex items-center px-2 py-0.5 bg-gray-800 rounded text-xs font-semibold text-gray-300">
+            <div className="flex-1">Sensor Name</div>
+            <div className="w-12 text-center">Status</div>
+            <div className="w-16 text-center">H</div>
+            <div className="w-16 text-center">V</div>
+            <div className="w-16 text-center">A</div>
+            <div className="w-20 text-center">Temp</div>
+          </div>
+          <div className="space-y-0">
+            {sensors.slice(Math.ceil(sensors.length * 2 / 3)).map((sensor) => {
+              const safeReadings = sensor?.readings || []
+              const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
+              const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
 
-              {/* A-axis Vibration */}
-              <div className="w-16 flex justify-center">
-                <div className={`w-3 h-6 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
-              </div>
-
-              {/* Temperature */}
-              <div className="w-20 flex justify-center">
-                <span className={`font-semibold ${getTemperatureColor(currentTemp)}`}>
-                  {currentTemp > 0 ? currentTemp : "0"}°C
-                </span>
-              </div>
-            </div>
-          )
-        })}
+              return (
+                <div
+                  key={sensor.id}
+                  className="flex items-center px-2 py-0.5 bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer rounded text-xs border-b border-gray-800"
+                  onClick={() => handleSensorClick(sensor.id)}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-1">
+                      <div
+                        className={`w-1 h-1 rounded-full ${
+                          sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      />
+                      <div>
+                        <div className="font-medium text-white text-xs">
+                          {sensor.name || "Unknown Sensor"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-12 flex justify-center">
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-16 flex justify-center">
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                  </div>
+                  <div className="w-20 flex justify-center">
+                    <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
+                      {currentTemp > 0 ? currentTemp : "0"}°C
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="flex justify-center mt-6">
+      <div className="flex justify-center mt-1">
         <ThemeProvider theme={paginationTheme}>
           <Pagination
             count={totalPages}
             page={page}
             onChange={handlePageChange}
             color="primary"
-            size="large"
+            size="small"
             showFirstButton
             showLastButton
           />
