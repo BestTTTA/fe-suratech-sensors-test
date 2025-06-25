@@ -36,6 +36,28 @@ export function formatDate(dateString: string, includeTime = false): string {
   }
 }
 
+export function formatRawTime(dateString: string): string {
+  if (!dateString) return "N/A"
+  try {
+    // Parse the ISO string and extract components without timezone conversion
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+      return "Invalid date"
+    }
+    
+    // Format as DD/MM HH:MM (24-hour format) using UTC to avoid timezone conversion
+    const day = date.getUTCDate().toString().padStart(2, '0')
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0')
+    const hours = date.getUTCHours().toString().padStart(2, '0')
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0')
+    
+    return `${day}/${month} ${hours}:${minutes}`
+  } catch (error) {
+    console.error("Error formatting raw time:", error)
+    return "Error"
+  }
+}
+
 // Generate a random ID
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15)

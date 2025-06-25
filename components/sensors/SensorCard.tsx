@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Battery, Wifi, MoreHorizontal } from "lucide-react"
 import type { Sensor } from "@/lib/types"
+import { formatRawTime } from "@/lib/utils"
 
 interface SensorCardProps {
   sensor: Sensor
@@ -117,6 +118,23 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
     }
   }
 
+  const formatDisplayTime = () => {
+    // Check if this sensor has raw API data
+    console.log("Sensor data:", {
+      name: sensor.name,
+      hasLastData: !!sensor.last_data,
+      lastDataDatetime: sensor.last_data?.datetime,
+      isApiSensor
+    })
+    
+    if (sensor.last_data && sensor.last_data.datetime) {
+      console.log("Using raw datetime:", sensor.last_data.datetime)
+      return formatRawTime(sensor.last_data.datetime)
+    }
+    console.log("Using fallback datetime:", displayLastUpdated)
+    return formatDateTime(displayLastUpdated)
+  }
+
   return (
     <Card
       className={`w-full border border-gray-700 shadow-md hover:shadow-lg transition-shadow cursor-pointer rounded-lg overflow-hidden bg-white ${
@@ -167,7 +185,7 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
         </div>
 
         {/* Timestamp */}
-        <div className="text-xs text-black mb-2">{formatDateTime(displayLastUpdated)}</div>
+        <div className="text-xs text-black mb-2">{formatDisplayTime()}</div>
 
         {/* Bottom Row - Icons and Temperature */}
         <div className="flex justify-between items-center">

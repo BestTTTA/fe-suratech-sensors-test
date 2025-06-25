@@ -76,6 +76,8 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         vibrationH: Math.random() > 0.8 ? "critical" : Math.random() > 0.6 ? "warning" : "normal",
         vibrationV: Math.random() > 0.8 ? "critical" : Math.random() > 0.6 ? "warning" : "normal",
         vibrationA: Math.random() > 0.8 ? "critical" : Math.random() > 0.6 ? "warning" : "normal",
+        // Store raw API data for access by components
+        last_data: apiSensor.last_data,
       }
 
       return sensor

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { LayoutDashboardIcon, PlusCircle, RefreshCw } from "lucide-react"
 import { getSensors } from "@/lib/data/sensors"
+import { formatDate } from "@/lib/utils"
 
 export default function SensorsPage() {
   const [totalSensors, setTotalSensors] = useState(0)
@@ -32,14 +33,10 @@ export default function SensorsPage() {
   const updateSensorData = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      // Update total count
       await fetchTotalSensors()
-
-      // Trigger sensor grid refresh without reloading
       if (window.refreshSensorData) {
         await window.refreshSensorData()
       }
-
       setLastUpdated(new Date())
     } finally {
       setIsRefreshing(false)
@@ -54,7 +51,6 @@ export default function SensorsPage() {
     setCurrentView(view)
   }, [])
 
-  // Initial fetch - only once
   useEffect(() => {
     if (!hasInitiallyLoaded.current) {
       fetchTotalSensors()
@@ -63,21 +59,15 @@ export default function SensorsPage() {
     }
   }, [fetchTotalSensors])
 
-  // Auto-refresh effect - always enabled
   useEffect(() => {
-    // Clear any existing intervals
     if (autoRefreshIntervalRef.current) {
       clearInterval(autoRefreshIntervalRef.current)
     }
-
     if (hasInitiallyLoaded.current) {
-      // Set up auto-refresh interval
       autoRefreshIntervalRef.current = setInterval(() => {
         updateSensorData()
-      }, 10000) // 10 seconds
+      }, 10000)
     }
-
-    // Cleanup on unmount
     return () => {
       if (autoRefreshIntervalRef.current) {
         clearInterval(autoRefreshIntervalRef.current)
@@ -85,27 +75,12 @@ export default function SensorsPage() {
     }
   }, [updateSensorData])
 
-  const currentDateTime = new Date()
-    .toLocaleString("en-GB", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-    .replace(",", "")
-
-  const lastUpdatedTime = lastUpdated.toLocaleString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
+  // Format date/time in Thailand time zone using utility
+  const currentDateTime = formatDate(new Date().toISOString(), true)
+  const lastUpdatedTime = formatDate(lastUpdated.toISOString(), true)
 
   const renderCurrentView = () => {
     const commonProps = { onRefresh: () => setLastUpdated(new Date()) }
-    
     switch (currentView) {
       case "grid":
         return <SensorGrid {...commonProps} />

@@ -34,6 +34,8 @@ export interface Sensor {
   vibrationH: "normal" | "warning" | "critical"
   vibrationV: "normal" | "warning" | "critical"
   vibrationA: "normal" | "warning" | "critical"
+  // Store raw API data
+  last_data?: any
 }
 
 export interface Machine {
@@ -60,4 +62,40 @@ export interface Alert {
   timestamp: number
   acknowledged: boolean
   resolvedAt?: number
+}
+
+export interface SensorFilters {
+  status?: "all" | "ok" | "warning" | "critical"
+  search?: string
+  page?: number
+  limit?: number
+}
+
+export interface SensorSummary {
+  totalSensors: number
+  activeSensors: number
+  criticalAlerts: number
+  criticalAlertsChange: number
+  warningAlerts: number
+  warningAlertsChange: number
+  avgTemperature: number
+  minTemperature: number
+  maxTemperature: number
+  avgVibration: {
+    x: number
+    y: number
+    z: number
+  }
+  temperatureData: Array<{
+    name: string
+    min: number
+    avg: number
+    max: number
+  }>
+  vibrationData: Array<{
+    name: string
+    x: number
+    y: number
+    z: number
+  }>
 }
