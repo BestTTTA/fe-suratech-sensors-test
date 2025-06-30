@@ -72,11 +72,6 @@ export default function SensorMetadata({ sensor, machine }: SensorMetadataProps)
           <div className="text-sm font-medium text-gray-400">Installation Date</div>
           <div className="text-sm text-gray-200">{new Date(sensor.installationDate).toLocaleDateString()}</div>
         </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="text-sm font-medium text-gray-400">Operational Time</div>
-          <div className="text-sm text-gray-200">{operationalDays} days</div>
-        </div>
       </div>
 
       {latestReading && (

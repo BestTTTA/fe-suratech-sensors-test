@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { LayoutDashboardIcon, PlusCircle, RefreshCw } from "lucide-react"
 import { getSensors } from "@/lib/data/sensors"
-import { formatDate } from "@/lib/utils"
+import { formatDate, formatRawTime } from "@/lib/utils"
 
 export default function SensorsPage() {
   const [totalSensors, setTotalSensors] = useState(0)
@@ -77,7 +77,7 @@ export default function SensorsPage() {
 
   // Format date/time in Thailand time zone using utility
   const currentDateTime = formatDate(new Date().toISOString(), true)
-  const lastUpdatedTime = formatDate(lastUpdated.toISOString(), true)
+  const lastUpdatedTime = formatRawTime(lastUpdated.toISOString())
 
   const renderCurrentView = () => {
     const commonProps = { onRefresh: () => setLastUpdated(new Date()) }
@@ -114,7 +114,7 @@ export default function SensorsPage() {
             {isRefreshing ? "Updating..." : "Refresh Now"}
           </Button>
 
-          <div className="text-sm text-gray-400">Last updated: {lastUpdatedTime}</div>
+          <div className="text-sm text-gray-400">Last updated: {formatRawTime(lastUpdatedTime)}</div>
         </div>
         <div className="flex gap-2">
           <ViewSelector currentView={currentView} onViewChange={handleViewChange} />

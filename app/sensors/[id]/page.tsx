@@ -832,10 +832,6 @@ export default function SensorDetailPage() {
                       <span className="text-gray-400">Installation Date</span>
                       <span>{formatDate(sensor.installationDate || "2025-04-26")}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Operational Time</span>
-                      <span>{sensor.operationalDays || "30"} days</span>
-                    </div>
                   </div>
                 </div>
               </div>
