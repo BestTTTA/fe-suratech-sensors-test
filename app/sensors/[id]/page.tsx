@@ -133,42 +133,67 @@ interface SensorLastData {
   name: string
   sensor_type: string | null
   unit: string | null
+  fmax: number
+  lor: number
+  g_scale: number
+  alarm_ths: number
+  time_interval: number
   data: {
     datetime: string
-    x: number[]
-    y: number[]
-    z: number[]
+    h: number[]
+    v: number[]
+    a: number[]
     temperature: number
     battery: number
+    rssi: number
+    flag: string
   }
 }
 
 // ฟังก์ชันคำนวณสถิติการสั่นสะเทือน
 function calculateVibrationStats(x: number[], y: number[], z: number[]) {
-  // แปลงค่า ADC เป็น G
-  const xG = x.map((adc) => adcToAccelerationG(adc))
-  const yG = y.map((adc) => adcToAccelerationG(adc))
-  const zG = z.map((adc) => adcToAccelerationG(adc))
+  // Check if we have valid data
+  if (!x || !y || !z || x.length === 0 || y.length === 0 || z.length === 0) {
+    return {
+      rms: "0.000",
+      peak: "0.000",
+      status: "Normal",
+    };
+  }
 
-  // คำนวณค่า RMS (Root Mean Square)
-  const rmsX = Math.sqrt(xG.reduce((sum, val) => sum + val * val, 0) / xG.length)
-  const rmsY = Math.sqrt(yG.reduce((sum, val) => sum + val * val, 0) / yG.length)
-  const rmsZ = Math.sqrt(zG.reduce((sum, val) => sum + val * val, 0) / zG.length)
-  const rmsTotal = Math.sqrt((rmsX * rmsX + rmsY * rmsY + rmsZ * rmsZ) / 3)
+  try {
+    // แปลงค่า ADC เป็น G
+    const xG = x.map((adc) => adcToAccelerationG(adc))
+    const yG = y.map((adc) => adcToAccelerationG(adc))
+    const zG = z.map((adc) => adcToAccelerationG(adc))
 
-  // คำนวณค่า Peak
-  const peakX = Math.max(...xG.map(Math.abs))
-  const peakY = Math.max(...yG.map(Math.abs))
-  const peakZ = Math.max(...zG.map(Math.abs))
-  const peakTotal = Math.max(peakX, peakY, peakZ)
+    // คำนวณค่า RMS (Root Mean Square)
+    const rmsX = Math.sqrt(xG.reduce((sum, val) => sum + val * val, 0) / xG.length)
+    const rmsY = Math.sqrt(yG.reduce((sum, val) => sum + val * val, 0) / yG.length)
+    const rmsZ = Math.sqrt(zG.reduce((sum, val) => sum + val * val, 0) / zG.length)
+    const rmsTotal = Math.sqrt((rmsX * rmsX + rmsY * rmsY + rmsZ * rmsZ) / 3)
 
-  // กำหนดสถานะตามค่า RMS
-  const status = rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal"
+    // คำนวณค่า Peak
+    const peakX = Math.max(...xG.map(Math.abs))
+    const peakY = Math.max(...yG.map(Math.abs))
+    const peakZ = Math.max(...zG.map(Math.abs))
+    const peakTotal = Math.max(peakX, peakY, peakZ)
 
-  return {
-    rms: rmsTotal.toFixed(3),
-    peak: peakTotal.toFixed(3),
-    status,
+    // กำหนดสถานะตามค่า RMS
+    const status = rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal"
+
+    return {
+      rms: rmsTotal.toFixed(3),
+      peak: peakTotal.toFixed(3),
+      status,
+    };
+  } catch (error) {
+    console.error("Error in calculateVibrationStats:", error);
+    return {
+      rms: "0.000",
+      peak: "0.000",
+      status: "Normal",
+    };
   }
 }
 
@@ -186,6 +211,48 @@ function prepareChartData(
   peakToPeakValue?: string;
   topPeaks?: { peak: number; rms: string; frequency: string }[];
 } {
+  // Check if we have valid data
+  if (!rawAxisData || rawAxisData.length === 0) {
+    // Return empty chart data with fallback values
+    const emptyTimeData = {
+      labels: [],
+      rmsValue: "0.000",
+      peakValue: "0.000",
+      peakToPeakValue: "0.000",
+      datasets: [{
+        label: "No Data",
+        data: [],
+        borderColor: "rgb(75, 192, 192)",
+        backgroundColor: "rgba(75, 192, 192, 0.1)",
+        tension: 0.1,
+        pointRadius: 0,
+      }],
+    };
+
+    const emptyFreqData = {
+      labels: [],
+      datasets: [{
+        label: "No Data",
+        data: [],
+        borderColor: "rgb(75, 192, 192)",
+        backgroundColor: "rgba(75, 192, 192, 0.1)",
+        tension: 0.1,
+        pointRadius: 3,
+        pointBackgroundColor: [],
+      }],
+    };
+
+    return {
+      timeData: emptyTimeData,
+      freqData: emptyFreqData,
+      yAxisLabel: "No Data",
+      rmsValue: "0.000",
+      peakValue: "0.000",
+      peakToPeakValue: "0.000",
+      topPeaks: [],
+    };
+  }
+
   // สร้างป้ายเวลาสำหรับกราฟ
   const n = rawAxisData.length
   const timeLabels = Array.from({ length: n }, (_, i) => (i * timeInterval).toFixed(2))
@@ -243,6 +310,32 @@ function prepareChartData(
   // คำนวณ FFT สำหรับโดเมนความถี่
   const { magnitude, frequency } = calculateFFT(processedData)
 
+  // Check if FFT calculation was successful
+  if (!magnitude || magnitude.length === 0 || !frequency || frequency.length === 0) {
+    const emptyFreqData = {
+      labels: [],
+      datasets: [{
+        label: `${yAxisLabel} Magnitude`,
+        data: [],
+        borderColor: "rgb(75, 192, 192)",
+        backgroundColor: "rgba(75, 192, 192, 0.1)",
+        tension: 0.1,
+        pointRadius: 3,
+        pointBackgroundColor: [],
+      }],
+    };
+
+    return {
+      timeData: timeChartData,
+      freqData: emptyFreqData,
+      yAxisLabel,
+      rmsValue,
+      peakValue,
+      peakToPeakValue,
+      topPeaks: [],
+    };
+  }
+
   // Remove zero frequency (DC component)
   const freqLabels = frequency.slice(1)
   const freqMagnitude = magnitude.slice(1)
@@ -258,7 +351,6 @@ function prepareChartData(
     topIndices.forEach(idx => {
       pointBackgroundColor[idx] = 'red'
     })
-
 
     // Prepare topPeaks array for the table
     topPeaks = topIndices.map(idx => ({
@@ -296,38 +388,60 @@ function prepareChartData(
 
 // Helper function to get stats for each axis
 function getAxisStats(axisData: number[], timeInterval: number) {
+  // Check if we have valid data
+  if (!axisData || axisData.length === 0) {
+    return {
+      accelRMS: "0.00",
+      velocityRMS: "0.00",
+      dominantFreq: "0.00"
+    };
+  }
 
+  try {
+    const processedData = axisData.map(adc => adcToAccelerationG(adc));
+    const accelG = processedData.map(adc => adcToAccelerationG(adc));
+    const velocity = accelerationToVelocity(accelG, timeInterval)
 
-  const processedData = axisData.map(adc => adcToAccelerationG(adc));
-  const accelG = processedData.map(adc => adcToAccelerationG(adc));
-  const velocity = accelerationToVelocity(accelG, timeInterval)
+    const { magnitude, frequency } = calculateFFT(processedData)
+    const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity)
 
-  const { magnitude, frequency } = calculateFFT(processedData)
-  
-  const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity)
+    // Check if we have valid magnitude data
+    if (!magnitude || magnitude.length === 0 || !velocityMagnitude || velocityMagnitude.length === 0) {
+      return {
+        accelRMS: "0.00",
+        velocityRMS: "0.00",
+        dominantFreq: "0.00"
+      };
+    }
 
-  //find max of magnitude and index
-  const cutMagnitude = magnitude.slice(1)
-  const maxMagnitude = Math.max(...cutMagnitude)
-  const indexMagnitude = magnitude.indexOf(maxMagnitude)
-  
+    //find max of magnitude and index
+    const cutMagnitude = magnitude.slice(1)
+    const maxMagnitude = Math.max(...cutMagnitude)
+    const indexMagnitude = magnitude.indexOf(maxMagnitude)
 
+    //find max of velocity and index
+    const cutVelocityMagnitude = velocityMagnitude.slice(1)
+    const maxVelocity = Math.max(...cutVelocityMagnitude)
+    const velocityIndex = velocityMagnitude.indexOf(maxVelocity)
 
-  //find max of velocity and index
-  const cutVelocityMagnitude = velocityMagnitude.slice(1)
-  const maxVelocity = Math.max(...cutVelocityMagnitude)
-  const velocityIndex = velocityMagnitude.indexOf(maxVelocity)
+    // Check if velocityIndex is valid and velocityFrequency exists
+    const dominantFreq = (velocityFrequency && velocityFrequency[velocityIndex] !== undefined) 
+      ? velocityFrequency[velocityIndex] 
+      : 0;
 
-
-
-
- 
-
-  return {
-    accelRMS: maxMagnitude.toFixed(2),
-    velocityRMS: maxVelocity.toFixed(2),
-    dominantFreq: velocityFrequency[velocityIndex].toFixed(2)
-  };
+    return {
+      accelRMS: maxMagnitude.toFixed(2),
+      velocityRMS: maxVelocity.toFixed(2),
+      dominantFreq: dominantFreq.toFixed(2)
+    };
+  } catch (error) {
+    console.error("Error in getAxisStats:", error);
+    return {
+      accelRMS: "0.00",
+      velocityRMS: "0.00",
+      dominantFreq: "0.00"
+    };
+  }
 }
 
 // Add this helper function after the existing formatDate function
@@ -398,20 +512,30 @@ export default function SensorDetailPage() {
         setSensor(data)
       } else if (lastData) {
         // สร้างข้อมูลเซ็นเซอร์จาก API ถ้าไม่พบในฐานข้อมูล
+        const hData = lastData.data.h || []
+        const vData = lastData.data.v || []
+        const aData = lastData.data.a || []
+        
         setSensor({
           id: params.id,
           name: lastData.name,
           serialNumber: `S-${params.id.substring(0, 4).toUpperCase()}`,
-          machine: "API Machine",
+          machine: lastData.sensor_type || "API Machine",
           location: "API Location",
           temperature: lastData.data.temperature,
-          vibrationX: lastData.data.x,
-          vibrationY: lastData.data.y,
-          vibrationZ: lastData.data.z,
+          vibrationX: hData.length > 0 ? hData[0] : 0,
+          vibrationY: vData.length > 0 ? vData[0] : 0,
+          vibrationZ: aData.length > 0 ? aData[0] : 0,
           status: "ok",
           battery: lastData.data.battery,
           lastUpdated: lastData.data.datetime,
           installationDate: "2025-04-26",
+          // Add new API configuration fields
+          fmax: lastData.fmax,
+          lor: lastData.lor,
+          g_scale: lastData.g_scale,
+          alarm_ths: lastData.alarm_ths,
+          time_interval: lastData.time_interval,
         })
       } else {
         // สร้างข้อมูลเซ็นเซอร์เริ่มต้นถ้าไม่พบข้อมูล
@@ -487,20 +611,20 @@ export default function SensorDetailPage() {
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
     if (sensorLastData?.data) {
-      const { x, y, z } = sensorLastData.data
+      const { h, v, a } = sensorLastData.data
 
       // ตรวจสอบว่ามีข้อมูลอาร์เรย์หรือไม่
-      if (Array.isArray(x) && Array.isArray(y) && Array.isArray(z) && x.length > 0) {
-        const stats = calculateVibrationStats(x, y, z)
+      if (Array.isArray(h) && Array.isArray(v) && Array.isArray(a) && h.length > 0) {
+        const stats = calculateVibrationStats(h, v, a)
         setVibrationStats(stats)
       } else {
         // ใช้ค่าเดี่ยวถ้าไม่มีข้อมูลอาร์เรย์
-        const xG = typeof x === "number" ? x : 0
-        const yG = typeof y === "number" ? y : 0
-        const zG = typeof z === "number" ? z : 0
+        const hG = typeof h === "number" ? h : 0
+        const vG = typeof v === "number" ? v : 0
+        const aG = typeof a === "number" ? a : 0
 
-        const rmsTotal = Math.sqrt((xG * xG + yG * yG + zG * zG) / 3)
-        const peakTotal = Math.max(Math.abs(xG), Math.abs(yG), Math.abs(zG))
+        const rmsTotal = Math.sqrt((hG * hG + vG * vG + aG * aG) / 3)
+        const peakTotal = Math.max(Math.abs(hG), Math.abs(vG), Math.abs(aG))
         const status = rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal"
 
         setVibrationStats({
@@ -526,10 +650,10 @@ export default function SensorDetailPage() {
     // ตรวจสอบว่ามีข้อมูลการสั่นสะเทือนจริงหรือไม่
     if (
       !sensorLastData?.data ||
-      !Array.isArray(sensorLastData.data.x) ||
-      !Array.isArray(sensorLastData.data.y) ||
-      !Array.isArray(sensorLastData.data.z) ||
-      sensorLastData.data.x.length === 0
+      !Array.isArray(sensorLastData.data.h) ||
+      !Array.isArray(sensorLastData.data.v) ||
+      !Array.isArray(sensorLastData.data.a) ||
+      sensorLastData.data.h.length === 0
     ) {
       return {
         hasData: false,
@@ -541,10 +665,10 @@ export default function SensorDetailPage() {
     // เลือกข้อมูลตามแกนที่เลือก
     const rawAxisData =
       selectedAxis === "H-axis"
-        ? sensorLastData.data.x
+        ? sensorLastData.data.h
         : selectedAxis === "V-axis"
-          ? sensorLastData.data.y
-          : sensorLastData.data.z
+          ? sensorLastData.data.v
+          : sensorLastData.data.a
 
     // คำนวณช่วงเวลาตามอัตราการสุ่มตัวอย่าง
     const timeInterval = 1 / SAMPLING_RATE;
@@ -580,11 +704,13 @@ export default function SensorDetailPage() {
   // Use real data if available, otherwise use sensor data or fallback
   const currentData = sensorLastData?.data || {
     temperature: sensor.temperature || 0,
-    x: sensor.vibrationX || 0,
-    y: sensor.vibrationY || 0,
-    z: sensor.vibrationZ || 0,
+    h: [sensor.vibrationX || 0],
+    v: [sensor.vibrationY || 0],
+    a: [sensor.vibrationZ || 0],
     battery: sensor.battery || 0,
     datetime: sensor.lastUpdated || new Date().toISOString(),
+    rssi: 0,
+    flag: "",
   }
 
   // Ensure all values are numbers
@@ -595,9 +721,9 @@ export default function SensorDetailPage() {
 
   // Prepare stats for each axis
   const timeInterval = 1 / SAMPLING_RATE;
-  const xStats = getAxisStats(sensorLastData?.data?.x || [], timeInterval);
-  const yStats = getAxisStats(sensorLastData?.data?.y || [], timeInterval);
-  const zStats = getAxisStats(sensorLastData?.data?.z || [], timeInterval);
+  const xStats = getAxisStats(sensorLastData?.data?.h || [], timeInterval);
+  const yStats = getAxisStats(sensorLastData?.data?.v || [], timeInterval);
+  const zStats = getAxisStats(sensorLastData?.data?.a || [], timeInterval);
 
   const timeChartOptions = {
     responsive: true,
@@ -839,6 +965,45 @@ export default function SensorDetailPage() {
           </CardContent>
         </Card>
 
+        {/* New Configuration Information Card */}
+        {sensorLastData && (
+          <Card className="bg-gray-900 border-gray-800">
+            <CardContent className="p-4">
+              <h2 className="text-lg font-semibold mb-4">Sensor Configuration</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-400">Alarm Threshold</div>
+                  <div className="text-lg font-semibold">{sensorLastData.alarm_ths}°C</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-400">G-Scale</div>
+                  <div className="text-lg font-semibold">±{sensorLastData.g_scale}G</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-400">Max Frequency</div>
+                  <div className="text-lg font-semibold">{sensorLastData.fmax}Hz</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-400">Time Interval</div>
+                  <div className="text-lg font-semibold">{sensorLastData.time_interval}s</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-400">LOR</div>
+                  <div className="text-lg font-semibold">{sensorLastData.lor}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-400">RSSI</div>
+                  <div className="text-lg font-semibold">{currentData.rssi || 0}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-400">Flag</div>
+                  <div className="text-lg font-semibold">{currentData.flag || "None"}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Statistics and Analysis */}
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -847,13 +1012,18 @@ export default function SensorDetailPage() {
                 <h3 className="text-gray-400 mb-2">Temperature Statistics</h3>
                 <div className="text-2xl font-bold">{safeTemp.toFixed(1)}°C</div>
                 <div className="text-sm text-gray-500">
-                  Status: {safeTemp > 35 ? "Critical" : safeTemp > 30 ? "Warning" : "Normal"}
+                  Status: {safeTemp > (sensorLastData?.alarm_ths || 35) ? "Critical" : safeTemp > (sensorLastData?.alarm_ths || 35) * 0.7 ? "Warning" : "Normal"}
                 </div>
+                {sensorLastData?.alarm_ths && (
+                  <div className="text-xs text-gray-600 mt-1">
+                    Threshold: {sensorLastData.alarm_ths}°C
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
-                <h3 className="text-white mb-2">Horizontal</h3>
+                <h3 className="text-white mb-2">Horizontal (H)</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
@@ -872,7 +1042,7 @@ export default function SensorDetailPage() {
             </Card>
             <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
-                <h3 className="text-white mb-2">Vertical</h3>
+                <h3 className="text-white mb-2">Vertical (V)</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
@@ -891,7 +1061,7 @@ export default function SensorDetailPage() {
             </Card>
             <Card className="bg-green-900 border-gray-800">
               <CardContent className="p-4">
-                <h3 className="text-white mb-2">Axial</h3>
+                <h3 className="text-white mb-2">Axial (A)</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
@@ -921,9 +1091,9 @@ export default function SensorDetailPage() {
                     <SelectValue placeholder="Select axis" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="H-axis">H-axis (X)</SelectItem>
-                    <SelectItem value="V-axis">V-axis (Y)</SelectItem>
-                    <SelectItem value="A-axis">A-axis (Z)</SelectItem>
+                    <SelectItem value="H-axis">H-axis (Horizontal)</SelectItem>
+                    <SelectItem value="V-axis">V-axis (Vertical)</SelectItem>
+                    <SelectItem value="A-axis">A-axis (Axial)</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -951,10 +1121,10 @@ export default function SensorDetailPage() {
                 // Calculate statistics from real data
                 const axisData =
                   selectedAxis === "H-axis"
-                    ? sensorLastData?.data?.x || []
+                    ? sensorLastData?.data?.h || []
                     : selectedAxis === "V-axis"
-                      ? sensorLastData?.data?.y || []
-                      : sensorLastData?.data?.z || []
+                      ? sensorLastData?.data?.v || []
+                      : sensorLastData?.data?.a || []
 
                 const absValues = axisData.map(Math.abs)
                 const max = Math.max(...absValues)

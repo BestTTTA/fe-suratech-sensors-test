@@ -35,13 +35,23 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   // Check if this is a real API sensor (has specific characteristics)
   const isApiSensor = sensor?.model?.includes("Model-API-") || false
 
+  // Get new API configuration fields
+  const alarmThreshold = sensor?.alarm_ths || 5.0
+  const gScale = sensor?.g_scale || 16
+  const fmax = sensor?.fmax || 10000
+  const timeInterval = sensor?.time_interval || 3
+
   // If online and has real readings, compute vibration status from latest reading
   let displayVibrationH = safeVibrationH
   let displayVibrationV = safeVibrationV
   let displayVibrationA = safeVibrationA
   if (safeConnectivity === "online" && latestReading) {
-    const getLevel = (val: number) =>
-      val > 1.2 ? "critical" : val > 0.8 ? "warning" : "normal"
+    const getLevel = (val: number) => {
+      // Use alarm threshold to determine vibration levels
+      if (val > alarmThreshold) return "critical"
+      if (val > alarmThreshold * 0.7) return "warning"
+      return "normal"
+    }
     displayVibrationH = getLevel(latestReading.vibrationX)
     displayVibrationV = getLevel(latestReading.vibrationY)
     displayVibrationA = getLevel(latestReading.vibrationZ)
@@ -142,9 +152,14 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
       }`}
       onClick={onClick}
     >
-      {/* Header with model name */}
+      {/* Header with model name and configuration info */}
       <div className={`text-white px-2 py-1 ${isApiSensor ? "bg-blue-600" : "bg-gray-700"}`}>
         <div className="text-xs font-medium truncate">{safeModel}</div>
+        {isApiSensor && (
+          <div className="text-xs opacity-75">
+            G-Scale: {gScale}G | Fmax: {fmax}Hz | Interval: {timeInterval}s
+          </div>
+        )}
       </div>
 
       <CardContent className="p-2">
@@ -166,6 +181,14 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
           <Badge className={`${getStatusColor(safeStatus)} text-xs px-2 py-1 rounded-full font-medium`}>
             {safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
           </Badge>
+        </div>
+
+        {/* Temperature Display */}
+        <div className="text-xs text-black mb-2">
+          Temp: {currentTemp}°C
+          {isApiSensor && alarmThreshold && (
+            <span className="text-gray-500 ml-1">(Thresh: {alarmThreshold}°C)</span>
+          )}
         </div>
 
         {/* Vibration Indicators with Labels */}
@@ -195,15 +218,15 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
               <Battery className="h-3 w-3 text-white fill-current" />
             </div>
 
-            {/* WiFi Icon with WPS */}
+            {/* WiFi Icon with RSSI */}
             <div className={`flex flex-col items-center justify-center w-6 h-4 ${getWifiColor()} rounded`}>
               <Wifi className="h-2 w-2 text-white" />
-              <span className="text-xs text-white font-bold leading-none">WPS</span>
+              <span className="text-xs text-white">{sensor?.signalStrength || 0}</span>
             </div>
           </div>
 
-          {/* Temperature */}
-          <div className="text-lg font-bold text-black">{currentTemp > 0 ? `${currentTemp}°C` : "0°C"}</div>
+          {/* Temperature Display */}
+          <div className="text-sm font-bold text-black">{currentTemp}°C</div>
         </div>
       </CardContent>
     </Card>

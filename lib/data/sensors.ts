@@ -1,4 +1,4 @@
-import type { Sensor, SensorFilters, SensorReading, SensorSummary } from "@/lib/types"
+import type { Sensor, SensorFilters, SensorReading, SensorSummary, SensorApiData } from "@/lib/types"
 import { generateMockSensors, generateMockReadings } from "./mockData"
 // Add the import for getRegisteredDevices at the top of the file
 import { getRegisteredDevices } from "./register"
@@ -21,34 +21,47 @@ async function fetchRealSensors(): Promise<Sensor[]> {
     const apiData = await response.json()
 
     // Transform API data to match our Sensor interface
-    return apiData.map((apiSensor: any) => {
+    return apiData.map((apiSensor: SensorApiData) => {
       const now = Date.now()
 
-      // Create readings from last_data if available
+      // Create readings from data if available
       const readings: SensorReading[] = []
-      if (apiSensor.last_data) {
+      if (apiSensor.data) {
+        // Use the new data structure with h, v, a arrays
+        const hData = apiSensor.data.h || []
+        const vData = apiSensor.data.v || []
+        const aData = apiSensor.data.a || []
+        
+        // Use the first values from arrays or default to 0
+        const vibrationX = hData.length > 0 ? hData[0] : 0.5 + Math.random() * 0.3
+        const vibrationY = vData.length > 0 ? vData[0] : 0.5 + Math.random() * 0.3
+        const vibrationZ = aData.length > 0 ? aData[0] : 0.5 + Math.random() * 0.3
+
         readings.push({
-          timestamp: new Date(apiSensor.last_data.datetime).getTime(),
-          temperature: apiSensor.last_data.temperature || 0,
-          vibrationX: 0.5 + Math.random() * 0.3, // Generate random vibration since not in API
-          vibrationY: 0.5 + Math.random() * 0.3,
-          vibrationZ: 0.5 + Math.random() * 0.3,
+          timestamp: new Date(apiSensor.data.datetime).getTime(),
+          temperature: apiSensor.data.temperature || 0,
+          vibrationX,
+          vibrationY,
+          vibrationZ,
         })
       }
 
-      // Determine status based on available data
+      // Determine status based on available data and alarm threshold
       let status: "ok" | "warning" | "critical" = "ok"
-      if (apiSensor.last_data) {
-        if (apiSensor.last_data.temperature > 35) {
+      if (apiSensor.data) {
+        const alarmThreshold = apiSensor.alarm_ths || 5.0 // Default to 5.0 if not provided
+        
+        // Check temperature against alarm threshold
+        if (apiSensor.data.temperature > alarmThreshold) {
           status = "critical"
-        } else if (apiSensor.last_data.temperature > 30) {
+        } else if (apiSensor.data.temperature > alarmThreshold * 0.7) { // 70% of threshold
           status = "warning"
         }
 
         // Check battery level
-        if (apiSensor.last_data.battery < 20) {
+        if (apiSensor.data.battery < 20) {
           status = "critical"
-        } else if (apiSensor.last_data.battery < 50) {
+        } else if (apiSensor.data.battery < 50) {
           status = status === "ok" ? "warning" : status
         }
       }
@@ -59,25 +72,31 @@ async function fetchRealSensors(): Promise<Sensor[]> {
       const sensor: Sensor = {
         id: apiSensor.id,
         serialNumber: `S-${sensorNumber.padStart(4, "0")}`,
-        machineName: apiSensor.machine_id || "Unknown Machine",
+        machineName: apiSensor.sensor_type || "Unknown Machine",
         location: "API Location", // Default since not provided in API
-        installationDate: new Date(apiSensor.created_at).getTime(),
-        lastUpdated: new Date(apiSensor.updated_at).getTime(),
+        installationDate: now - 30 * 24 * 60 * 60 * 1000, // Default to 30 days ago
+        lastUpdated: new Date(apiSensor.data?.datetime || now).getTime(),
         readings,
         status,
         maintenanceHistory: [],
         // New fields for card display
         name: apiSensor.name,
         model: `Model-${apiSensor.id.substring(0, 8)}`,
-        operationalStatus: apiSensor.last_data ? "running" : "standby",
-        batteryLevel: apiSensor.last_data?.battery || 0,
-        connectivity: apiSensor.last_data ? "online" : "offline",
-        signalStrength: apiSensor.last_data ? Math.floor(Math.random() * 100) + 1 : 0,
-        vibrationH: Math.random() > 0.8 ? "critical" : Math.random() > 0.6 ? "warning" : "normal",
-        vibrationV: Math.random() > 0.8 ? "critical" : Math.random() > 0.6 ? "warning" : "normal",
-        vibrationA: Math.random() > 0.8 ? "critical" : Math.random() > 0.6 ? "warning" : "normal",
+        operationalStatus: apiSensor.data ? "running" : "standby",
+        batteryLevel: apiSensor.data?.battery || 0,
+        connectivity: apiSensor.data ? "online" : "offline",
+        signalStrength: apiSensor.data?.rssi || Math.floor(Math.random() * 100) + 1,
+        vibrationH: "normal", // Will be calculated based on actual data
+        vibrationV: "normal", // Will be calculated based on actual data
+        vibrationA: "normal", // Will be calculated based on actual data
         // Store raw API data for access by components
-        last_data: apiSensor.last_data,
+        last_data: apiSensor.data,
+        // New API configuration fields
+        fmax: apiSensor.fmax,
+        lor: apiSensor.lor,
+        g_scale: apiSensor.g_scale,
+        alarm_ths: apiSensor.alarm_ths,
+        time_interval: apiSensor.time_interval,
       }
 
       return sensor

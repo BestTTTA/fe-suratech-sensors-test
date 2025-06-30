@@ -8,6 +8,29 @@ export interface SensorReading {
   vibrationZ: number
 }
 
+// New interface for the updated API structure
+export interface SensorApiData {
+  id: string
+  name: string
+  sensor_type: string | null
+  unit: string | null
+  fmax: number
+  lor: number
+  g_scale: number
+  alarm_ths: number
+  time_interval: number
+  data: {
+    datetime: string
+    h: number[]
+    v: number[]
+    a: number[]
+    temperature: number
+    battery: number
+    rssi: number
+    flag: string
+  }
+}
+
 export interface Sensor {
   id: string
   serialNumber: string
@@ -36,6 +59,12 @@ export interface Sensor {
   vibrationA: "normal" | "warning" | "critical"
   // Store raw API data
   last_data?: any
+  // New API configuration fields
+  fmax?: number
+  lor?: number
+  g_scale?: number
+  alarm_ths?: number
+  time_interval?: number
 }
 
 export interface Machine {
