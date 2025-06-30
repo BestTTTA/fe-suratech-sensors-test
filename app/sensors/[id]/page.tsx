@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { ArrowLeft, MoreVertical, Calendar } from "lucide-react"
+import { ArrowLeft, MoreVertical, Calendar, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { getSensorById } from "@/lib/data/sensors"
 import { formatDate } from "@/lib/utils"
 import { Line } from "react-chartjs-2"
@@ -478,6 +481,19 @@ export default function SensorDetailPage() {
   })
   const [selectedDatetime, setSelectedDatetime] = useState<string>("")
 
+  // Configuration modal state
+  const [configModalOpen, setConfigModalOpen] = useState(false)
+  const [configLoading, setConfigLoading] = useState(false)
+  const [configError, setConfigError] = useState<string | null>(null)
+  const [configSuccess, setConfigSuccess] = useState<string | null>(null)
+  const [configData, setConfigData] = useState({
+    fmax: 10000,
+    lor: 6400,
+    g_scale: 16,
+    alarm_ths: 5.0,
+    time_interval: 3
+  })
+
   // ฟังก์ชันดึงข้อมูลล่าสุดจากเซ็นเซอร์
   const fetchSensorLastData = async (sensorId: string) => {
     try {
@@ -607,6 +623,96 @@ export default function SensorDetailPage() {
     fetchSensor()
     fetchSensorDatetimes(params.id)
   }, [params.id])
+
+  // Update config data when sensorLastData changes
+  useEffect(() => {
+    if (sensorLastData) {
+      setConfigData({
+        fmax: sensorLastData.fmax || 10000,
+        lor: sensorLastData.lor || 6400,
+        g_scale: sensorLastData.g_scale || 16,
+        alarm_ths: sensorLastData.alarm_ths || 5.0,
+        time_interval: sensorLastData.time_interval || 3
+      })
+    }
+  }, [sensorLastData])
+
+  // Cleanup modal state on component unmount
+  useEffect(() => {
+    return () => {
+      setConfigModalOpen(false)
+      setConfigError(null)
+      setConfigSuccess(null)
+      setConfigLoading(false)
+    }
+  }, [])
+
+  // Force cleanup when modal closes
+  useEffect(() => {
+    if (!configModalOpen) {
+      // Small delay to ensure modal is fully closed
+      const timer = setTimeout(() => {
+        setConfigError(null)
+        setConfigSuccess(null)
+        setConfigLoading(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [configModalOpen])
+
+  // Configuration functions
+  const handleConfigSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setConfigLoading(true)
+    setConfigError(null)
+    setConfigSuccess(null)
+
+    try {
+      const response = await fetch('https://sc.promptlabai.com/suratech/sensors/config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fmax: configData.fmax,
+          lor: configData.lor,
+          g_scale: configData.g_scale,
+          alarm_ths: configData.alarm_ths,
+          time_interval: configData.time_interval
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setConfigSuccess('Sensor configuration updated successfully!')
+      
+      // Refresh sensor data to get updated configuration
+      await fetchSensorLastData(params.id)
+      
+      // Close modal after a short delay to show success message
+      setTimeout(() => {
+        setConfigModalOpen(false)
+        setConfigError(null)
+        setConfigSuccess(null)
+        setConfigLoading(false)
+      }, 1000)
+    } catch (error) {
+      console.error('Error updating sensor configuration:', error)
+      setConfigError('Failed to update sensor configuration. Please try again.')
+    } finally {
+      setConfigLoading(false)
+    }
+  }
+
+  const handleConfigChange = (field: string, value: string | number) => {
+    setConfigData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
@@ -874,6 +980,14 @@ export default function SensorDetailPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-gray-900 border-gray-800">
+              <DropdownMenuItem onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setConfigModalOpen(true)
+              }}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configure Sensor
+              </DropdownMenuItem>
               <DropdownMenuItem>Export Data</DropdownMenuItem>
               <DropdownMenuItem>Print Report</DropdownMenuItem>
               <DropdownMenuItem>Share</DropdownMenuItem>
@@ -964,45 +1078,6 @@ export default function SensorDetailPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* New Configuration Information Card */}
-        {sensorLastData && (
-          <Card className="bg-gray-900 border-gray-800">
-            <CardContent className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Sensor Configuration</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-400">Alarm Threshold</div>
-                  <div className="text-lg font-semibold">{sensorLastData.alarm_ths}°C</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-400">G-Scale</div>
-                  <div className="text-lg font-semibold">±{sensorLastData.g_scale}G</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-400">Max Frequency</div>
-                  <div className="text-lg font-semibold">{sensorLastData.fmax}Hz</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-400">Time Interval</div>
-                  <div className="text-lg font-semibold">{sensorLastData.time_interval}s</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-400">LOR</div>
-                  <div className="text-lg font-semibold">{sensorLastData.lor}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-400">RSSI</div>
-                  <div className="text-lg font-semibold">{currentData.rssi || 0}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-400">Flag</div>
-                  <div className="text-lg font-semibold">{currentData.flag || "None"}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Statistics and Analysis */}
         <div className="space-y-4">
@@ -1232,6 +1307,162 @@ export default function SensorDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Configuration Modal */}
+      {configModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/80"
+            onClick={() => {
+              setConfigModalOpen(false)
+              setConfigError(null)
+              setConfigSuccess(null)
+              setConfigLoading(false)
+            }}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-gray-900 border border-gray-800 text-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Configure Sensor</h2>
+              <button
+                onClick={() => {
+                  setConfigModalOpen(false)
+                  setConfigError(null)
+                  setConfigSuccess(null)
+                  setConfigLoading(false)
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleConfigSubmit} className="space-y-4">
+              {configError && (
+                <div className="bg-red-900 border border-red-700 text-red-100 px-3 py-2 rounded-md text-sm">
+                  {configError}
+                </div>
+              )}
+              
+              {configSuccess && (
+                <div className="bg-green-900 border border-green-700 text-green-100 px-3 py-2 rounded-md text-sm">
+                  {configSuccess}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="fmax" className="text-sm font-medium text-gray-300">
+                    Max Frequency (Hz)
+                  </Label>
+                  <Input
+                    id="fmax"
+                    type="number"
+                    value={configData.fmax}
+                    onChange={(e) => handleConfigChange('fmax', Number(e.target.value))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    min="1000"
+                    max="50000"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="lor" className="text-sm font-medium text-gray-300">
+                    LOR
+                  </Label>
+                  <Input
+                    id="lor"
+                    type="number"
+                    value={configData.lor}
+                    onChange={(e) => handleConfigChange('lor', Number(e.target.value))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    min="1000"
+                    max="20000"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="g_scale" className="text-sm font-medium text-gray-300">
+                    G-Scale
+                  </Label>
+                  <Select
+                    value={configData.g_scale.toString()}
+                    onValueChange={(value) => handleConfigChange('g_scale', Number(value))}
+                  >
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                      <SelectValue placeholder="Select G-Scale" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-gray-700">
+                      <SelectItem value="2">±2G</SelectItem>
+                      <SelectItem value="4">±4G</SelectItem>
+                      <SelectItem value="8">±8G</SelectItem>
+                      <SelectItem value="16">±16G</SelectItem>
+                      <SelectItem value="32">±32G</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="alarm_ths" className="text-sm font-medium text-gray-300">
+                    Alarm Threshold (°C)
+                  </Label>
+                  <Input
+                    id="alarm_ths"
+                    type="number"
+                    step="0.1"
+                    value={configData.alarm_ths}
+                    onChange={(e) => handleConfigChange('alarm_ths', Number(e.target.value))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="time_interval" className="text-sm font-medium text-gray-300">
+                    Time Interval (seconds)
+                  </Label>
+                  <Input
+                    id="time_interval"
+                    type="number"
+                    value={configData.time_interval}
+                    onChange={(e) => handleConfigChange('time_interval', Number(e.target.value))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    min="1"
+                    max="3600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setConfigModalOpen(false)
+                    setConfigError(null)
+                    setConfigSuccess(null)
+                    setConfigLoading(false)
+                  }}
+                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                  disabled={configLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={configLoading}
+                >
+                  {configLoading ? "Updating..." : "Update Configuration"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
