@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Bell, User } from "lucide-react"
+import { Bell, User, LogOut, Settings } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,9 +12,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/components/auth/AuthProvider"
+import Link from "next/link"
 
 export default function Header() {
   const [alertCount, setAlertCount] = useState(3)
+  const { user, logout } = useAuth()
 
   return (
     <header className="bg-gray-800 border-b border-gray-700 py-3 px-6">
@@ -61,12 +64,24 @@ export default function Header() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
-              <DropdownMenuLabel className="text-white">My Account</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-white">
+                {user ? user.name : "Guest"}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-gray-700" />
-              <DropdownMenuItem className="text-gray-200 hover:bg-gray-700">Profile</DropdownMenuItem>
-              <DropdownMenuItem className="text-gray-200 hover:bg-gray-700">Settings</DropdownMenuItem>
+              <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-gray-700" />
-              <DropdownMenuItem className="text-gray-200 hover:bg-gray-700">Logout</DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={logout}
+                className="text-gray-200 hover:bg-gray-700 cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

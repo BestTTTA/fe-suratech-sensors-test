@@ -12,6 +12,7 @@ import Link from "next/link"
 import { LayoutDashboardIcon, PlusCircle, RefreshCw } from "lucide-react"
 import { getSensors } from "@/lib/data/sensors"
 import { formatDate, formatRawTime } from "@/lib/utils"
+import ProtectedRoute from "@/components/auth/ProtectedRoute"
 
 export default function SensorsPage() {
   const [totalSensors, setTotalSensors] = useState(0)
@@ -94,49 +95,51 @@ export default function SensorsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Location of Sensor</h1>
-        <div className="text-lg font-medium text-white">{currentDateTime}</div>
-        <div className="text-lg font-bold text-white">Total Sensor: {totalSensors}</div>
-      </div>
-
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={handleManualRefresh}
-            disabled={isRefreshing}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 border-gray-600 text-white hover:bg-gray-700"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            {isRefreshing ? "Updating..." : "Refresh Now"}
-          </Button>
-
-          <div className="text-sm text-gray-400">Last updated: {formatRawTime(lastUpdatedTime)}</div>
+    <ProtectedRoute>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-white">Location of Sensor</h1>
+          <div className="text-lg font-medium text-white">{currentDateTime}</div>
+          <div className="text-lg font-bold text-white">Total Sensor: {totalSensors}</div>
         </div>
-        <div className="flex gap-2">
-          <ViewSelector currentView={currentView} onViewChange={handleViewChange} />
-          <Button asChild variant="outline" className="border-gray-600 text-white hover:bg-gray-700">
-            <Link href="/register" className="flex items-center">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Register Device
-            </Link>
-          </Button>
-          <Button asChild className="bg-blue-600 hover:bg-blue-700">
-            <Link href="/dashboard" className="flex items-center">
-              <LayoutDashboardIcon className="mr-2 h-4 w-4" />
-              View Dashboard
-            </Link>
-          </Button>
-        </div>
-      </div>
 
-      <SensorFilters />
-      <Suspense fallback={<LoadingSkeleton />}>
-        {renderCurrentView()}
-      </Suspense>
-    </div>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-gray-600 text-white hover:bg-gray-700"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Updating..." : "Refresh Now"}
+            </Button>
+
+            <div className="text-sm text-gray-400">Last updated: {formatRawTime(lastUpdatedTime)}</div>
+          </div>
+          <div className="flex gap-2">
+            <ViewSelector currentView={currentView} onViewChange={handleViewChange} />
+            <Button asChild variant="outline" className="border-gray-600 text-white hover:bg-gray-700">
+              <Link href="/register" className="flex items-center">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Register Device
+              </Link>
+            </Button>
+            <Button asChild className="bg-blue-600 hover:bg-blue-700">
+              <Link href="/dashboard" className="flex items-center">
+                <LayoutDashboardIcon className="mr-2 h-4 w-4" />
+                View Dashboard
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        <SensorFilters />
+        <Suspense fallback={<LoadingSkeleton />}>
+          {renderCurrentView()}
+        </Suspense>
+      </div>
+    </ProtectedRoute>
   )
 }

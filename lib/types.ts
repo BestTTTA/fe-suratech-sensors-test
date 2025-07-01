@@ -8,6 +8,39 @@ export interface SensorReading {
   vibrationZ: number
 }
 
+// Authentication types
+export interface User {
+  id: string
+  name: string
+  email: string
+  org_code: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AuthResponse {
+  user: User
+  token: string
+  message?: string
+}
+
+export interface RegisterRequest {
+  name: string
+  email: string
+  password: string
+  org_code: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface AuthError {
+  message: string
+  field?: string
+}
+
 // New interface for the updated API structure
 export interface SensorApiData {
   id: string
