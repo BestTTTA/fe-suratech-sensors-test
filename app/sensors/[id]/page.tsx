@@ -668,7 +668,7 @@ export default function SensorDetailPage() {
     setConfigSuccess(null)
 
     try {
-      const response = await fetch('https://sc.promptlabai.com/suratech/sensors/config', {
+      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${params.id}/config`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
