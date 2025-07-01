@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { User } from '@/lib/types'
-import { getToken, getUser, logout, setToken, setUser } from '@/lib/auth'
+import { getToken, getUser, logout, setToken, setUser as setUserStorage } from '@/lib/auth'
 
 interface AuthContextType {
   user: User | null
@@ -18,27 +18,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Initialize authentication state
   useEffect(() => {
-    // Check for existing auth on mount
-    const token = getToken()
-    const userData = getUser()
-    
-    if (token && userData) {
-      setUser(userData)
+    const initializeAuth = () => {
+      try {
+        const token = getToken()
+        const userData = getUser()
+        
+        console.log('Auth initialization - Token:', token ? 'exists' : 'missing')
+        console.log('Auth initialization - User data:', userData ? 'exists' : 'missing')
+        
+        if (token && userData) {
+          console.log('Setting authenticated user:', userData)
+          setUser(userData)
+        } else {
+          console.log('No valid auth data found')
+          setUser(null)
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
-    
-    setLoading(false)
+
+    // Initialize immediately
+    initializeAuth()
   }, [])
 
   const handleLogin = (userData: User, token: string) => {
-    setToken(token)
-    setUser(userData)
-    setUser(userData)
+    console.log('Login - Storing token and user data')
+    try {
+      setToken(token)
+      setUserStorage(userData)
+      setUser(userData)
+      console.log('Login - Auth state updated successfully')
+    } catch (error) {
+      console.error('Login error:', error)
+    }
   }
 
   const handleLogout = () => {
-    logout()
-    setUser(null)
+    console.log('Logout - Clearing auth data')
+    try {
+      logout()
+      setUser(null)
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
   }
 
   const value = {

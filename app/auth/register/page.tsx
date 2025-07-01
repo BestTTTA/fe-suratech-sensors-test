@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { register } from "@/lib/auth"
+import { useAuth } from "@/components/auth/AuthProvider"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 
 export default function RegisterPage() {
@@ -19,28 +20,36 @@ export default function RegisterPage() {
   const [orgCode, setOrgCode] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const router = useRouter()
+  const { isAuthenticated, loading } = useAuth()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.push("/")
+    }
+  }, [isAuthenticated, loading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setIsSubmitting(true)
     setError("")
     setSuccess("")
 
     // Validate passwords match
     if (password !== confirmPassword) {
       setError("Passwords do not match")
-      setLoading(false)
+      setIsSubmitting(false)
       return
     }
 
     // Validate password strength
     if (password.length < 8) {
       setError("Password must be at least 8 characters long")
-      setLoading(false)
+      setIsSubmitting(false)
       return
     }
 
@@ -64,8 +73,32 @@ export default function RegisterPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed")
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
+  }
+
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          <span className="text-white">Loading...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't show register form if already authenticated
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          <span className="text-white">Redirecting...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -193,9 +226,9 @@ export default function RegisterPage() {
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700"
-              disabled={loading}
+              disabled={isSubmitting}
             >
-              {loading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating account...

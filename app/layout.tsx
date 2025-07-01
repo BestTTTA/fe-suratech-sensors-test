@@ -4,8 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth/AuthProvider"
-import Sidebar from "@/components/layout/Sidebar"
-import Header from "@/components/layout/Header"
+import AuthWrapper from "@/components/auth/AuthWrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,13 +24,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <AuthProvider>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <div className="flex flex-col flex-1 overflow-hidden">
-                <Header />
-                <main className="flex-1 overflow-auto bg-gray-900 p-4">{children}</main>
-              </div>
-            </div>
+            <AuthWrapper>
+              {children}
+            </AuthWrapper>
           </AuthProvider>
         </ThemeProvider>
       </body>
