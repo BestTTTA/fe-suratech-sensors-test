@@ -105,7 +105,7 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
       case "online":
         return "bg-green-500"
       case "offline":
-        return "bg-red-500"
+        return "bg-gray-500"
       default:
         return "bg-gray-500"
     }
@@ -179,7 +179,7 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1">
             <div
-              className={`w-2 h-2 rounded-full ${safeConnectivity === "online" ? "bg-green-500" : "bg-red-500"}`}
+              className={`w-2 h-2 rounded-full ${safeConnectivity === "online" ? "bg-green-500" : "bg-gray-500"}`}
             ></div>
             <span className="text-sm font-bold text-black truncate">{safeName}</span>
           </div>

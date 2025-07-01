@@ -138,7 +138,7 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
   }
 
   const getConnectivityBorder = (status: string) => {
-    return status === "online" ? "border-green-500" : "border-red-500"
+    return status === "online" ? "border-green-500" : "border-gray-500"
   }
 
   if (loading && !hasInitiallyLoaded.current) {
@@ -188,7 +188,7 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
                     </div>
                     <div className="flex items-center space-x-1">
                       <span>Status:</span>
-                      <div className={`w-2 h-2 ${sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"} rounded-full`} />
+                      <div className={`w-2 h-2 ${sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"} rounded-full`} />
                       <span className="text-xs">{sensor.connectivity || "offline"}</span>
                     </div>
                     <div className="flex items-center space-x-1">

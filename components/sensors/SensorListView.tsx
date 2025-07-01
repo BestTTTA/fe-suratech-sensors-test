@@ -190,7 +190,7 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                     <div className="flex items-center space-x-1">
                       <div
                         className={`w-1 h-1 rounded-full ${
-                          sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"
+                          sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"
                         }`}
                       />
                       <div>
@@ -249,7 +249,7 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                     <div className="flex items-center space-x-1">
                       <div
                         className={`w-1 h-1 rounded-full ${
-                          sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"
+                          sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"
                         }`}
                       />
                       <div>
@@ -308,7 +308,7 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                     <div className="flex items-center space-x-1">
                       <div
                         className={`w-1 h-1 rounded-full ${
-                          sensor.connectivity === "online" ? "bg-green-500" : "bg-red-500"
+                          sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"
                         }`}
                       />
                       <div>
