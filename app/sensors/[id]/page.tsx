@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getSensorById } from "@/lib/data/sensors"
-import { formatDate } from "@/lib/utils"
+import { formatDate, getSignalStrength, getSignalStrengthLabel } from "@/lib/utils"
 import { Line } from "react-chartjs-2"
 import {
   Chart as ChartJS,
@@ -1063,6 +1063,13 @@ export default function SensorDetailPage() {
                     <div className="flex justify-between">
                       <span className="text-gray-400">Battery</span>
                       <span>{safeBattery.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Signal Strength</span>
+                      <span className="flex items-center gap-1">
+                        <span>{getSignalStrength(currentData.rssi)}</span>
+                        <span className="text-xs text-gray-500">({getSignalStrengthLabel(currentData.rssi)})</span>
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Last Updated</span>

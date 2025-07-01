@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Battery, Wifi, MoreHorizontal } from "lucide-react"
 import type { Sensor } from "@/lib/types"
-import { formatRawTime } from "@/lib/utils"
+import { formatRawTime, getSignalStrength, getSignalStrengthLabel } from "@/lib/utils"
 
 interface SensorCardProps {
   sensor: Sensor
@@ -108,6 +108,18 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
         return "bg-red-500"
       default:
         return "bg-gray-500"
+    }
+  }
+
+  const getSignalColor = (rssi: number) => {
+    const level = getSignalStrength(rssi)
+    switch (level) {
+      case 0: return "bg-gray-500" // No signal
+      case 1: return "bg-red-500"  // Weak
+      case 2: return "bg-yellow-500" // Fair
+      case 3: return "bg-blue-500" // Good
+      case 4: return "bg-green-500" // Excellent
+      default: return "bg-gray-500"
     }
   }
 
@@ -219,9 +231,9 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
             </div>
 
             {/* WiFi Icon with RSSI */}
-            <div className={`flex flex-col items-center justify-center w-6 h-4 ${getWifiColor()} rounded`}>
+            <div className={`flex flex-col items-center justify-center w-6 h-4 ${getSignalColor(sensor?.signalStrength || 0)} rounded`}>
               <Wifi className="h-2 w-2 text-white" />
-              <span className="text-xs text-white">{sensor?.signalStrength || 0}</span>
+              <span className="text-xs text-white">{getSignalStrength(sensor?.signalStrength || 0)}</span>
             </div>
           </div>
 

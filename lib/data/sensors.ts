@@ -26,20 +26,20 @@ async function fetchRealSensors(): Promise<Sensor[]> {
 
       // Create readings from data if available
       const readings: SensorReading[] = []
-      if (apiSensor.data) {
-        // Use the new data structure with h, v, a arrays
-        const hData = apiSensor.data.h || []
-        const vData = apiSensor.data.v || []
-        const aData = apiSensor.data.a || []
+      if (apiSensor.last_data) {
+        // Use the new simplified data structure
+        const temperature = apiSensor.last_data.temperature || 0
+        const battery = apiSensor.last_data.battery || 0
+        const rssi = apiSensor.last_data.rssi || 0
         
-        // Use the first values from arrays or default to 0
-        const vibrationX = hData.length > 0 ? hData[0] : 0.5 + Math.random() * 0.3
-        const vibrationY = vData.length > 0 ? vData[0] : 0.5 + Math.random() * 0.3
-        const vibrationZ = aData.length > 0 ? aData[0] : 0.5 + Math.random() * 0.3
+        // Generate mock vibration data since it's not in the API response
+        const vibrationX = 0.5 + Math.random() * 0.3
+        const vibrationY = 0.5 + Math.random() * 0.3
+        const vibrationZ = 0.5 + Math.random() * 0.3
 
         readings.push({
-          timestamp: new Date(apiSensor.data.datetime).getTime(),
-          temperature: apiSensor.data.temperature || 0,
+          timestamp: new Date(apiSensor.last_data.datetime).getTime(),
+          temperature,
           vibrationX,
           vibrationY,
           vibrationZ,
@@ -48,20 +48,20 @@ async function fetchRealSensors(): Promise<Sensor[]> {
 
       // Determine status based on available data and alarm threshold
       let status: "ok" | "warning" | "critical" = "ok"
-      if (apiSensor.data) {
+      if (apiSensor.last_data) {
         const alarmThreshold = apiSensor.alarm_ths || 5.0 // Default to 5.0 if not provided
         
         // Check temperature against alarm threshold
-        if (apiSensor.data.temperature > alarmThreshold) {
+        if (apiSensor.last_data.temperature > alarmThreshold) {
           status = "critical"
-        } else if (apiSensor.data.temperature > alarmThreshold * 0.7) { // 70% of threshold
+        } else if (apiSensor.last_data.temperature > alarmThreshold * 0.7) { // 70% of threshold
           status = "warning"
         }
 
         // Check battery level
-        if (apiSensor.data.battery < 20) {
+        if (apiSensor.last_data.battery < 20) {
           status = "critical"
-        } else if (apiSensor.data.battery < 50) {
+        } else if (apiSensor.last_data.battery < 50) {
           status = status === "ok" ? "warning" : status
         }
       }
@@ -74,23 +74,23 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         serialNumber: `S-${sensorNumber.padStart(4, "0")}`,
         machineName: apiSensor.sensor_type || "Unknown Machine",
         location: "API Location", // Default since not provided in API
-        installationDate: now - 30 * 24 * 60 * 60 * 1000, // Default to 30 days ago
-        lastUpdated: new Date(apiSensor.data?.datetime || now).getTime(),
+        installationDate: new Date(apiSensor.created_at).getTime(), // Use created_at from API
+        lastUpdated: new Date(apiSensor.last_data?.datetime || now).getTime(),
         readings,
         status,
         maintenanceHistory: [],
         // New fields for card display
         name: apiSensor.name,
         model: `Model-${apiSensor.id.substring(0, 8)}`,
-        operationalStatus: apiSensor.data ? "running" : "standby",
-        batteryLevel: apiSensor.data?.battery || 0,
-        connectivity: apiSensor.data ? "online" : "offline",
-        signalStrength: apiSensor.data?.rssi || Math.floor(Math.random() * 100) + 1,
+        operationalStatus: apiSensor.last_data ? "running" : "standby",
+        batteryLevel: apiSensor.last_data?.battery || 0,
+        connectivity: apiSensor.last_data ? "online" : "offline",
+        signalStrength: apiSensor.last_data?.rssi || 0,
         vibrationH: "normal", // Will be calculated based on actual data
         vibrationV: "normal", // Will be calculated based on actual data
         vibrationA: "normal", // Will be calculated based on actual data
         // Store raw API data for access by components
-        last_data: apiSensor.data,
+        last_data: apiSensor.last_data,
         // New API configuration fields
         fmax: apiSensor.fmax,
         lor: apiSensor.lor,

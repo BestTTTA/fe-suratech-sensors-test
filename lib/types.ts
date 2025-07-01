@@ -47,20 +47,19 @@ export interface SensorApiData {
   name: string
   sensor_type: string | null
   unit: string | null
-  fmax: number
-  lor: number
-  g_scale: number
-  alarm_ths: number
-  time_interval: number
-  data: {
+  fmax?: number
+  lor?: number
+  g_scale?: number
+  alarm_ths?: number
+  time_interval?: number
+  created_at: string
+  updated_at: string
+  machine_id: string | null
+  last_data: {
     datetime: string
-    h: number[]
-    v: number[]
-    a: number[]
     temperature: number
     battery: number
     rssi: number
-    flag: string
   }
 }
 

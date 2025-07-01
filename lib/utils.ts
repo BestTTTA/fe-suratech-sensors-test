@@ -62,3 +62,25 @@ export function formatRawTime(dateString: string): string {
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15)
 }
+
+// Convert RSSI to signal strength level (0-4)
+export function getSignalStrength(rssi: number): number {
+  if (rssi === 0) return 0
+  if (rssi <= 1) return 1
+  if (rssi <= 2) return 2
+  if (rssi <= 3) return 3
+  return 4
+}
+
+// Get signal strength label
+export function getSignalStrengthLabel(rssi: number): string {
+  const level = getSignalStrength(rssi)
+  switch (level) {
+    case 0: return "No Signal"
+    case 1: return "Weak"
+    case 2: return "Fair"
+    case 3: return "Good"
+    case 4: return "Excellent"
+    default: return "Unknown"
+  }
+}
