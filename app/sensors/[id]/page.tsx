@@ -1413,7 +1413,7 @@ export default function SensorDetailPage() {
 
                 <div>
                   <Label htmlFor="alarm_ths" className="text-sm font-medium text-gray-300">
-                    Alarm Threshold (°C)
+                    Alarm Threshold (mm/s)
                   </Label>
                   <Input
                     id="alarm_ths"
@@ -1429,7 +1429,7 @@ export default function SensorDetailPage() {
 
                 <div>
                   <Label htmlFor="time_interval" className="text-sm font-medium text-gray-300">
-                    Time Interval (seconds)
+                    Time Interval (hours)
                   </Label>
                   <Input
                     id="time_interval"
