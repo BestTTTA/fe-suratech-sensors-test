@@ -8,6 +8,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
+import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
 
 // Create a custom MUI theme for the pagination component
 const paginationTheme = createTheme({
@@ -123,10 +124,36 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
     }
   }
 
-  const getVibrationColor = (level: string, connectivity: string) => {
-    if (connectivity === "offline") {
+  const getVibrationColor = (sensor: Sensor, axis: 'h' | 'v' | 'a') => {
+    if (sensor.connectivity === "offline") {
       return "bg-gray-400"
     }
+    
+    // Calculate velocity-based vibration status
+    if (sensor.last_data && sensor.last_data.data) {
+      const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
+      const axisData = axis === 'h' ? sensor.last_data.data.h : 
+                      axis === 'v' ? sensor.last_data.data.v : 
+                      sensor.last_data.data.a
+      
+      if (axisData && axisData.length > 0) {
+        const stats = getAxisTopPeakStats(axisData, timeInterval)
+        const velocityValue = parseFloat(stats.velocityTopPeak)
+        
+        if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
+          return "bg-green-500"
+        } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
+          return "bg-red-500"
+        } else {
+          return "bg-yellow-500"
+        }
+      }
+    }
+    
+    // Fallback to sensor's stored vibration level
+    const level = axis === 'h' ? sensor.vibrationH : 
+                 axis === 'v' ? sensor.vibrationV : 
+                 sensor.vibrationA
     
     switch (level) {
       case "normal":
@@ -204,13 +231,13 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                     <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-20 flex justify-center">
                     <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
@@ -263,13 +290,13 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                     <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-20 flex justify-center">
                     <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
@@ -322,13 +349,13 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                     <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full border border-gray-600`} />
+                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
                   </div>
                   <div className="w-20 flex justify-center">
                     <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>

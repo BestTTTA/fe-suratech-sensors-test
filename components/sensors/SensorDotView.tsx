@@ -8,6 +8,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
 
 // Create a custom MUI theme for the pagination component
 const paginationTheme = createTheme({
@@ -110,20 +111,34 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
     router.push(`/sensors/${sensorId}`)
   }
 
-  const getVibrationColor = (level: string, connectivity: string) => {
-    if (connectivity === "offline") {
+  const getVibrationColor = (sensor: Sensor, axis: 'h' | 'v' | 'a') => {
+    if (sensor.connectivity === "offline") {
       return "bg-gray-400"
     }
-    
+    if (sensor.last_data && sensor.last_data.data) {
+      const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
+      const axisData = axis === 'h' ? sensor.last_data.data.h :
+                      axis === 'v' ? sensor.last_data.data.v :
+                      sensor.last_data.data.a
+      if (axisData && axisData.length > 0) {
+        const stats = getAxisTopPeakStats(axisData, timeInterval)
+        const velocityValue = parseFloat(stats.velocityTopPeak)
+        if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
+          return "bg-green-500"
+        } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
+          return "bg-red-500"
+        } else {
+          return "bg-yellow-500"
+        }
+      }
+    }
+    // fallback
+    const level = axis === 'h' ? sensor.vibrationH : axis === 'v' ? sensor.vibrationV : sensor.vibrationA
     switch (level) {
-      case "normal":
-        return "bg-green-500"
-      case "warning":
-        return "bg-yellow-500"
-      case "critical":
-        return "bg-red-500"
-      default:
-        return "bg-green-500"
+      case "normal": return "bg-green-500"
+      case "warning": return "bg-yellow-500"
+      case "critical": return "bg-red-500"
+      default: return "bg-green-500"
     }
   }
 
@@ -171,9 +186,9 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
                       {currentTemp > 0 ? currentTemp : "0"}
                     </span>
                     <div className="flex space-x-0.5 mt-0.5">
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")}`} />
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")}`} />
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")}`} />
+                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'h')}`} />
+                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'v')}`} />
+                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'a')}`} />
                     </div>
                   </div>
                 </TooltipTrigger>
@@ -194,9 +209,9 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
                     <div className="flex items-center space-x-1">
                       <span>Vibration:</span>
                       <div className="flex space-x-0.5">
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationH || "normal", sensor.connectivity || "offline")} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationV || "normal", sensor.connectivity || "offline")} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor.vibrationA || "normal", sensor.connectivity || "offline")} rounded-full`} />
+                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'h')} rounded-full`} />
+                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'v')} rounded-full`} />
+                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'a')} rounded-full`} />
                       </div>
                     </div>
                   </div>

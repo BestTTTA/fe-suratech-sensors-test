@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Battery, Wifi, MoreHorizontal } from "lucide-react"
 import type { Sensor } from "@/lib/types"
 import { formatRawTime, getSignalStrength, getSignalStrengthLabel } from "@/lib/utils"
+import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
 
 interface SensorCardProps {
   sensor: Sensor
@@ -41,20 +42,39 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   const fmax = sensor?.fmax || 10000
   const timeInterval = sensor?.time_interval || 3
 
-  // If online and has real readings, compute vibration status from latest reading
-  let displayVibrationH = safeVibrationH
-  let displayVibrationV = safeVibrationV
-  let displayVibrationA = safeVibrationA
-  if (safeConnectivity === "online" && latestReading) {
-    const getLevel = (val: number) => {
-      // Use alarm threshold to determine vibration levels
-      if (val > alarmThreshold) return "critical"
-      if (val > alarmThreshold * 0.7) return "warning"
-      return "normal"
+  // Calculate velocity-based vibration status for H, V, A axes
+  let displayVibrationH = "normal"
+  let displayVibrationV = "normal"
+  let displayVibrationA = "normal"
+  
+  if (safeConnectivity === "online" && sensor.last_data) {
+    const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
+
+    // merge array of arrays into one array
+    const concat_last_32_h = sensor.last_data.last_32_h.flat()
+    const concat_last_32_v = sensor.last_data.last_32_v.flat()
+    const concat_last_32_a = sensor.last_data.last_32_a.flat()
+    
+    // Calculate velocity stats for each axis
+    const hStats = getAxisTopPeakStats(concat_last_32_h || [], timeInterval)
+    const vStats = getAxisTopPeakStats(concat_last_32_v || [], timeInterval)
+    const aStats = getAxisTopPeakStats(concat_last_32_a || [], timeInterval)
+
+    
+    // Determine vibration level based on velocity values
+    const getVelocityLevel = (velocityValue: number) => {
+      if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
+        return "normal"
+      } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
+        return "critical"
+      } else {
+        return "warning"
+      }
     }
-    displayVibrationH = getLevel(latestReading.vibrationX)
-    displayVibrationV = getLevel(latestReading.vibrationY)
-    displayVibrationA = getLevel(latestReading.vibrationZ)
+    
+    displayVibrationH = getVelocityLevel(parseFloat(hStats.velocityTopPeak))
+    displayVibrationV = getVelocityLevel(parseFloat(vStats.velocityTopPeak))
+    displayVibrationA = getVelocityLevel(parseFloat(aStats.velocityTopPeak))
   }
 
   const getStatusColor = (status: string) => {
