@@ -426,6 +426,8 @@ function getAxisStats(axisData: number[], timeInterval: number) {
     const cutVelocityMagnitude = velocityMagnitude.slice(1)
     const maxVelocity = Math.max(...cutVelocityMagnitude)
     const velocityIndex = velocityMagnitude.indexOf(maxVelocity)
+    
+    console.log(maxVelocity, "maxVelocity", velocityIndex, "velocityIndex")
 
     // Check if velocityIndex is valid and velocityFrequency exists
     const dominantFreq = (velocityFrequency && velocityFrequency[velocityIndex] !== undefined) 
@@ -434,7 +436,7 @@ function getAxisStats(axisData: number[], timeInterval: number) {
 
     return {
       accelRMS: maxMagnitude.toFixed(2),
-      velocityRMS: maxVelocity.toFixed(2),
+      velocityRMS: maxVelocity.toFixed(3),
       dominantFreq: dominantFreq.toFixed(2)
     };
   } catch (error) {
@@ -442,6 +444,67 @@ function getAxisStats(axisData: number[], timeInterval: number) {
     return {
       accelRMS: "0.00",
       velocityRMS: "0.00",
+      dominantFreq: "0.00"
+    };
+  }
+}
+
+// New function to get top peak values for each axis
+function getAxisTopPeakStats(axisData: number[], timeInterval: number) {
+  // Check if we have valid data
+  if (!axisData || axisData.length === 0) {
+    return {
+      accelTopPeak: "0.00",
+      velocityTopPeak: "0.00",
+      dominantFreq: "0.00"
+    };
+  }
+
+  try {
+    // Convert ADC to acceleration (G)
+    const processedData = axisData.map(adc => adcToAccelerationG(adc));
+    
+    // Calculate velocity from acceleration
+    const accelerations = processedData.map(adc => accelerationGToMmPerSecSquared(adc));
+    const velocity = accelerationToVelocity(accelerations, timeInterval);
+
+    // Calculate FFT for both acceleration and velocity
+    const { magnitude: accelMagnitude, frequency: accelFrequency } = calculateFFT(processedData);
+    const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity);
+
+    // Check if we have valid magnitude data
+    if (!accelMagnitude || accelMagnitude.length === 0 || !velocityMagnitude || velocityMagnitude.length === 0) {
+      return {
+        accelTopPeak: "0.00",
+        velocityTopPeak: "0.00",
+        dominantFreq: "0.00"
+      };
+    }
+
+    // Remove DC component (first element) and find top peak for acceleration
+    const accelMagnitudeNoDC = accelMagnitude.slice(1);
+    const accelTopPeak = Math.max(...accelMagnitudeNoDC);
+
+    // Remove DC component (first element) and find top peak for velocity
+    const velocityMagnitudeNoDC = velocityMagnitude.slice(1);
+    const velocityTopPeak = Math.max(...velocityMagnitudeNoDC);
+
+    // Find dominant frequency (frequency of the highest velocity peak)
+    const velocityIndex = velocityMagnitude.indexOf(velocityTopPeak);
+    const dominantFreq = (velocityFrequency && velocityFrequency[velocityIndex] !== undefined) 
+      ? velocityFrequency[velocityIndex] 
+      : 0;
+
+    return {
+      accelTopPeak: (accelTopPeak * 0.707).toFixed(2),
+      velocityTopPeak: (velocityTopPeak * 0.707).toFixed(2),
+      dominantFreq: dominantFreq.toFixed(2)
+    };
+  } catch (error) {
+    console.error("Error in getAxisTopPeakStats:", error);
+    return {
+      accelTopPeak: "0.00",
+      velocityTopPeak: "0.00",
       dominantFreq: "0.00"
     };
   }
@@ -827,9 +890,9 @@ export default function SensorDetailPage() {
 
   // Prepare stats for each axis
   const timeInterval = 1 / SAMPLING_RATE;
-  const xStats = getAxisStats(sensorLastData?.data?.h || [], timeInterval);
-  const yStats = getAxisStats(sensorLastData?.data?.v || [], timeInterval);
-  const zStats = getAxisStats(sensorLastData?.data?.a || [], timeInterval);
+  const xStats = getAxisTopPeakStats(sensorLastData?.data?.h || [], timeInterval);
+  const yStats = getAxisTopPeakStats(sensorLastData?.data?.v || [], timeInterval);
+  const zStats = getAxisTopPeakStats(sensorLastData?.data?.a || [], timeInterval);
 
   const timeChartOptions = {
     responsive: true,
@@ -1109,11 +1172,11 @@ export default function SensorDetailPage() {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
-                    <span className="text-right text-white">{xStats.accelRMS}G</span>
+                    <span className="text-right text-white">{xStats.accelTopPeak}G</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Velocity RMS</span>
-                    <span className="text-right text-white">{xStats.velocityRMS} mm/s</span>
+                    <span className="text-right text-white">{xStats.velocityTopPeak} mm/s</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Dominant Frequency</span>
@@ -1128,11 +1191,11 @@ export default function SensorDetailPage() {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
-                    <span className="text-right text-white">{yStats.accelRMS}G</span>
+                    <span className="text-right text-white">{yStats.accelTopPeak}G</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Velocity RMS</span>
-                    <span className="text-right text-white">{yStats.velocityRMS} mm/s</span>
+                    <span className="text-right text-white">{yStats.velocityTopPeak} mm/s</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Dominant Frequency</span>
@@ -1147,11 +1210,11 @@ export default function SensorDetailPage() {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Acceleration RMS</span>
-                    <span className="text-right text-white">{zStats.accelRMS}G</span>
+                    <span className="text-right text-white">{zStats.accelTopPeak}G</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Velocity RMS</span>
-                    <span className="text-right text-white">{zStats.velocityRMS} mm/s</span>
+                    <span className="text-right text-white">{zStats.velocityTopPeak} mm/s</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Dominant Frequency</span>
