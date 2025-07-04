@@ -14,18 +14,11 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const pathname = usePathname()
   const { loading, isAuthenticated } = useAuth()
   
-  console.log('AuthWrapper - Pathname:', pathname)
-  console.log('AuthWrapper - Loading:', loading)
-  console.log('AuthWrapper - IsAuthenticated:', isAuthenticated)
-  
   // Check if current path is an auth page
   const isAuthPage = pathname === '/login' || pathname === '/auth/register'
   
-  console.log('AuthWrapper - IsAuthPage:', isAuthPage)
-  
   // Show loading while checking authentication
   if (loading) {
-    console.log('AuthWrapper - Showing loading...')
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="flex items-center space-x-2">
@@ -38,12 +31,10 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   
   // For auth pages, render without protection
   if (isAuthPage) {
-    console.log('AuthWrapper - Rendering auth page without protection')
     return <>{children}</>
   }
   
   // For all other pages, use protection
-  console.log('AuthWrapper - Rendering protected page')
   return (
     <ProtectedRoute>
       <div className="flex h-screen overflow-hidden">

@@ -102,7 +102,6 @@ async function fetchRealSensors(): Promise<Sensor[]> {
       return sensor
     })
   } catch (error) {
-    console.error("Error fetching real sensors:", error)
     return []
   }
 }
@@ -152,7 +151,7 @@ export async function getSensorById(id: string): Promise<Sensor | null> {
     const realSensor = realSensors.find((s) => s.id === id)
     if (realSensor) return realSensor
   } catch (error) {
-    console.error("Error fetching real sensor by ID:", error)
+    // Error fetching real sensor by ID
   }
 
   if (!mockSensors) {
@@ -168,14 +167,13 @@ export async function getSensorById(id: string): Promise<Sensor | null> {
       const { sensors: registeredSensors } = await getRegisteredDevices()
       sensor = registeredSensors.find((s) => s.id === id)
     } catch (error) {
-      console.error("Error fetching registered sensors:", error)
+      // Error fetching registered sensors
     }
   }
 
-  // If still not found, try to generate a fallback sensor for testing
-  if (!sensor && id) {
-    console.log(`Creating fallback sensor for ID: ${id}`)
-    // Create a fallback sensor for testing purposes
+      // If still not found, try to generate a fallback sensor for testing
+    if (!sensor && id) {
+      // Create a fallback sensor for testing purposes
     sensor = {
       id: id,
       serialNumber: `S-${id.substring(0, 4).toUpperCase()}`,
@@ -219,7 +217,7 @@ export async function getSensorReadings(sensorId: string, historical = false): P
       return realSensor.readings
     }
   } catch (error) {
-    console.error("Error fetching real sensor readings:", error)
+    // Error fetching real sensor readings
   }
 
   if (!mockSensors) {
@@ -235,7 +233,7 @@ export async function getSensorReadings(sensorId: string, historical = false): P
       const { sensors: registeredSensors } = await getRegisteredDevices()
       sensor = registeredSensors.find((s) => s.id === sensorId)
     } catch (error) {
-      console.error("Error fetching registered sensors:", error)
+      // Error fetching registered sensors
     }
   }
 

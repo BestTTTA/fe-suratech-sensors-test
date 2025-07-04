@@ -161,19 +161,9 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   }
 
   const formatDisplayTime = () => {
-    // Check if this sensor has raw API data
-    console.log("Sensor data:", {
-      name: sensor.name,
-      hasLastData: !!sensor.last_data,
-      lastDataDatetime: sensor.last_data?.datetime,
-      isApiSensor
-    })
-    
     if (sensor.last_data && sensor.last_data.datetime) {
-      console.log("Using raw datetime:", sensor.last_data.datetime)
       return formatRawTime(sensor.last_data.datetime)
     }
-    console.log("Using fallback datetime:", displayLastUpdated)
     return formatDateTime(displayLastUpdated)
   }
 

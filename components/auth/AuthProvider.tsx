@@ -25,14 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = getToken()
         const userData = getUser()
         
-        console.log('Auth initialization - Token:', token ? 'exists' : 'missing')
-        console.log('Auth initialization - User data:', userData ? 'exists' : 'missing')
-        
         if (token && userData) {
-          console.log('Setting authenticated user:', userData)
           setUser(userData)
         } else {
-          console.log('No valid auth data found')
           setUser(null)
         }
       } catch (error) {
@@ -48,19 +43,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const handleLogin = (userData: User, token: string) => {
-    console.log('Login - Storing token and user data')
     try {
       setToken(token)
       setUserStorage(userData)
       setUser(userData)
-      console.log('Login - Auth state updated successfully')
     } catch (error) {
       console.error('Login error:', error)
     }
   }
 
   const handleLogout = () => {
-    console.log('Logout - Clearing auth data')
     try {
       logout()
       setUser(null)

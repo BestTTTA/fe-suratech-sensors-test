@@ -135,13 +135,11 @@ function prepareChartData(
   } else if (selectedUnit === "Acceleration (mm/s²)") {
     processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
     yAxisLabel = "mm/s²"
-    console.log(processedData, "Acceleration (mm/s²)");
     
   } else {
     const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
     processedData = accelerationToVelocity(accelerations, timeInterval)
     yAxisLabel = "mm/s"
-    console.log(processedData, "Velocity (mm/s)");
   }
 
   // Calculate Overall Statistics in selected unit
@@ -330,7 +328,7 @@ export default function SensorDetailPage() {
       setSensorLastData(data)
       return data
     } catch (error) {
-      console.error("Error fetching sensor last data:", error)
+      // Error fetching sensor last data
       setError("Failed to fetch sensor data from API")
       return null
     }
@@ -392,7 +390,7 @@ export default function SensorDetailPage() {
         })
       }
     } catch (error) {
-      console.error("Error fetching sensor:", error)
+      // Error fetching sensor
       setError("Failed to fetch sensor data")
       // สร้างข้อมูลเซ็นเซอร์เริ่มต้นเมื่อเกิดข้อผิดพลาด
       setSensor({
@@ -432,7 +430,7 @@ export default function SensorDetailPage() {
       setDatetimes(data.datetimes)
       return data.datetimes
     } catch (error) {
-      console.error("Error fetching sensor datetimes:", error)
+      // Error fetching sensor datetimes
       setError("Failed to fetch sensor datetimes")
       return []
     }
@@ -520,8 +518,8 @@ export default function SensorDetailPage() {
         setConfigLoading(false)
       }, 1000)
     } catch (error) {
-      console.error('Error updating sensor configuration:', error)
-      setConfigError('Failed to update sensor configuration. Please try again.')
+      // Error updating sensor configuration
+      setConfigError('Error updating sensor configuration')
     } finally {
       setConfigLoading(false)
     }

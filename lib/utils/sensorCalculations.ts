@@ -95,8 +95,7 @@ export function calculateFFT(timeData: number[]): { magnitude: number[]; frequen
 
     return { magnitude, frequency: frequency.map(f => parseFloat(f.toFixed(2))) }
   } catch (error) {
-    console.error("FFT calculation error:", error)
-    // Return empty arrays or arrays of zeros as a safe fallback
+    // FFT calculation error
     return { magnitude: [], frequency: [] }
   }
 }
@@ -153,7 +152,7 @@ export function getAxisTopPeakStats(axisData: number[], timeInterval: number) {
       dominantFreq: dominantFreq.toFixed(2)
     };
   } catch (error) {
-    console.error("Error in getAxisTopPeakStats:", error);
+    // Error in getAxisTopPeakStats
     return {
       accelTopPeak: "0.00",
       velocityTopPeak: "0.00",
@@ -200,7 +199,7 @@ export function calculateVibrationStats(x: number[], y: number[], z: number[]) {
       status,
     };
   } catch (error) {
-    console.error("Error in calculateVibrationStats:", error);
+    // Error in calculateVibrationStats
     return {
       rms: "0.000",
       peak: "0.000",
@@ -246,8 +245,6 @@ export function getAxisStats(axisData: number[], timeInterval: number) {
     const cutVelocityMagnitude = velocityMagnitude.slice(1)
     const maxVelocity = Math.max(...cutVelocityMagnitude)
     const velocityIndex = velocityMagnitude.indexOf(maxVelocity)
-    
-    console.log(maxVelocity, "maxVelocity", velocityIndex, "velocityIndex")
 
     // Check if velocityIndex is valid and velocityFrequency exists
     const dominantFreq = (velocityFrequency && velocityFrequency[velocityIndex] !== undefined) 
@@ -260,7 +257,7 @@ export function getAxisStats(axisData: number[], timeInterval: number) {
       dominantFreq: dominantFreq.toFixed(2)
     };
   } catch (error) {
-    console.error("Error in getAxisStats:", error);
+    // Error in getAxisStats
     return {
       accelRMS: "0.00",
       velocityRMS: "0.00",
