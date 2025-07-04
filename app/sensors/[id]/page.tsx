@@ -24,111 +24,21 @@ import {
   Legend,
   Filler,
 } from "chart.js"
-// Import fft.js
-import FFT from "fft.js"
-import { log } from "console"
+// Import calculation functions from utility
+import { 
+  adcToAccelerationG, 
+  accelerationGToMmPerSecSquared, 
+  accelerationToVelocity, 
+  calculateFFT, 
+  getAxisTopPeakStats,
+  getAxisStats,
+  calculateVibrationStats,
+  SENSOR_CONSTANTS
+} from "@/lib/utils/sensorCalculations"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
-// ฟังก์ชันสำหรับแปลงค่า ADC เป็นค่า Acceleration (G)
-// ADC คือค่าที่ได้จากเซ็นเซอร์แบบดิจิตอล (0-1023)
-// range คือช่วงการวัดของเซ็นเซอร์ (±2G, ±4G, ±8G, ±16G)
-function adcToAccelerationG(adcValue: number, range = 16): number {
-  const offset = 0 // ค่า offset ของเซ็นเซอร์
-  let sensitivity: number
 
-  // กำหนดค่า sensitivity ตามช่วงการวัด
-  switch (range) {
-    case 2:
-      sensitivity = 16384 // ±2G
-      break
-    case 4:
-      sensitivity = 8192  // ±4G
-      break
-    case 8:
-      sensitivity = 4096  // ±8G
-      break
-    case 16:
-      sensitivity = 2048  // ±16G
-      break
-    default:
-      sensitivity = 16384 // ค่าเริ่มต้น ±2G
-  }
-
-  return (adcValue - offset) / sensitivity
-}
-
-// แปลงค่า Acceleration (G) เป็น mm/s²
-// 1G = 9806.65 mm/s²
-function accelerationGToMmPerSecSquared(accelerationG: number): number {
-  return accelerationG * 9806.65
-}
-
-// คำนวณความเร็วจากค่า acceleration
-// ใช้สูตร: ความเร็ว = ½(ti+1-ti) * (acceleration1 + acceleration2)
-function accelerationToVelocity(accelerations: number[], timeInterval: number): number[] {
-  const velocities: number[] = [0] // ค่าเริ่มต้นความเร็วเป็น 0
-
-  for (let i = 0; i < accelerations.length - 1; i++) {
-    const velocity = 0.5 * timeInterval * (accelerations[i] + accelerations[i + 1])
-    velocities.push(velocity)
-  }
-
-  return velocities
-}
-
-// อัตราการสุ่มตัวอย่างข้อมูล (Hz)
-const SAMPLING_RATE = 25600
-const MAX_FREQ = SAMPLING_RATE / 2.56
-
-// คำนวณ FFT (Fast Fourier Transform) เพื่อวิเคราะห์ความถี่
-// FFT คือการแปลงสัญญาณจากโดเมนเวลาเป็นโดเมนความถี่
-function calculateFFT(timeData: number[]): { magnitude: number[]; frequency: number[] } {
-  // ปรับความยาวข้อมูลให้เป็นกำลังของ 2 (จำเป็นสำหรับ FFT)
-  const nextPow2 = Math.pow(2, Math.ceil(Math.log2(timeData.length)))
-
-  try {
-    // สร้าง instance ของ FFT
-    const fft = new FFT(nextPow2)
-
-    // เตรียมข้อมูล input (เติม 0 ถ้าจำเป็น)
-    const input = new Float64Array(nextPow2)
-    for (let i = 0; i < timeData.length; i++) {
-      input[i] = timeData[i]
-    }
-
-    // เตรียมข้อมูล output (จำนวนจริงและจำนวนจินตภาพ)
-    const output = new Float64Array(nextPow2 * 2)
-
-    // ทำการแปลง FFT
-    fft.realTransform(output, input)
-
-    // คำนวณขนาดและความถี่
-    const n = timeData.length / 2.56
-    const magnitude: number[] = []
-    const frequency: number[] = []
-
-    // ประมวลผลครึ่งแรกของผลลัพธ์ FFT (ถึงความถี่ Nyquist)
-    for (let i = 0; i < n; i++) {
-      // ดึงส่วนจริงและส่วนจินตภาพ
-      const real = output[i * 2]
-      const imag = output[i * 2 + 1]
-
-      // คำนวณขนาดโดยใช้สูตร: 2.56 / n * abs(fft_res)
-      const abs = Math.sqrt(real * real + imag * imag)
-      magnitude.push((2.56 / n) * abs)
-
-      // คำนวณความถี่
-      frequency.push((i * MAX_FREQ) / n)
-    }
-
-    return { magnitude, frequency: frequency.map(f => parseFloat(f.toFixed(2))) }
-  } catch (error) {
-    console.error("FFT calculation error:", error)
-    // Return empty arrays or arrays of zeros as a safe fallback
-    return { magnitude: [], frequency: [] }
-  }
-}
 
 // First, update the SensorLastData interface to properly handle the vibration data arrays
 interface SensorLastData {
@@ -153,52 +63,7 @@ interface SensorLastData {
   }
 }
 
-// ฟังก์ชันคำนวณสถิติการสั่นสะเทือน
-function calculateVibrationStats(x: number[], y: number[], z: number[]) {
-  // Check if we have valid data
-  if (!x || !y || !z || x.length === 0 || y.length === 0 || z.length === 0) {
-    return {
-      rms: "0.000",
-      peak: "0.000",
-      status: "Normal",
-    };
-  }
 
-  try {
-    // แปลงค่า ADC เป็น G
-    const xG = x.map((adc) => adcToAccelerationG(adc))
-    const yG = y.map((adc) => adcToAccelerationG(adc))
-    const zG = z.map((adc) => adcToAccelerationG(adc))
-
-    // คำนวณค่า RMS (Root Mean Square)
-    const rmsX = Math.sqrt(xG.reduce((sum, val) => sum + val * val, 0) / xG.length)
-    const rmsY = Math.sqrt(yG.reduce((sum, val) => sum + val * val, 0) / yG.length)
-    const rmsZ = Math.sqrt(zG.reduce((sum, val) => sum + val * val, 0) / zG.length)
-    const rmsTotal = Math.sqrt((rmsX * rmsX + rmsY * rmsY + rmsZ * rmsZ) / 3)
-
-    // คำนวณค่า Peak
-    const peakX = Math.max(...xG.map(Math.abs))
-    const peakY = Math.max(...yG.map(Math.abs))
-    const peakZ = Math.max(...zG.map(Math.abs))
-    const peakTotal = Math.max(peakX, peakY, peakZ)
-
-    // กำหนดสถานะตามค่า RMS
-    const status = rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal"
-
-    return {
-      rms: rmsTotal.toFixed(3),
-      peak: peakTotal.toFixed(3),
-      status,
-    };
-  } catch (error) {
-    console.error("Error in calculateVibrationStats:", error);
-    return {
-      rms: "0.000",
-      peak: "0.000",
-      status: "Normal",
-    };
-  }
-}
 
 // ฟังก์ชันเตรียมข้อมูลสำหรับกราฟ
 function prepareChartData(
@@ -389,126 +254,7 @@ function prepareChartData(
   }
 }
 
-// Helper function to get stats for each axis
-function getAxisStats(axisData: number[], timeInterval: number) {
-  // Check if we have valid data
-  if (!axisData || axisData.length === 0) {
-    return {
-      accelRMS: "0.00",
-      velocityRMS: "0.00",
-      dominantFreq: "0.00"
-    };
-  }
 
-  try {
-    const processedData = axisData.map(adc => adcToAccelerationG(adc));
-    const accelG = processedData.map(adc => adcToAccelerationG(adc));
-    const velocity = accelerationToVelocity(accelG, timeInterval)
-
-    const { magnitude, frequency } = calculateFFT(processedData)
-    const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity)
-
-    // Check if we have valid magnitude data
-    if (!magnitude || magnitude.length === 0 || !velocityMagnitude || velocityMagnitude.length === 0) {
-      return {
-        accelRMS: "0.00",
-        velocityRMS: "0.00",
-        dominantFreq: "0.00"
-      };
-    }
-
-    //find max of magnitude and index
-    const cutMagnitude = magnitude.slice(1)
-    const maxMagnitude = Math.max(...cutMagnitude)
-    const indexMagnitude = magnitude.indexOf(maxMagnitude)
-
-    //find max of velocity and index
-    const cutVelocityMagnitude = velocityMagnitude.slice(1)
-    const maxVelocity = Math.max(...cutVelocityMagnitude)
-    const velocityIndex = velocityMagnitude.indexOf(maxVelocity)
-    
-    console.log(maxVelocity, "maxVelocity", velocityIndex, "velocityIndex")
-
-    // Check if velocityIndex is valid and velocityFrequency exists
-    const dominantFreq = (velocityFrequency && velocityFrequency[velocityIndex] !== undefined) 
-      ? velocityFrequency[velocityIndex] 
-      : 0;
-
-    return {
-      accelRMS: maxMagnitude.toFixed(2),
-      velocityRMS: maxVelocity.toFixed(3),
-      dominantFreq: dominantFreq.toFixed(2)
-    };
-  } catch (error) {
-    console.error("Error in getAxisStats:", error);
-    return {
-      accelRMS: "0.00",
-      velocityRMS: "0.00",
-      dominantFreq: "0.00"
-    };
-  }
-}
-
-// New function to get top peak values for each axis
-function getAxisTopPeakStats(axisData: number[], timeInterval: number) {
-  // Check if we have valid data
-  if (!axisData || axisData.length === 0) {
-    return {
-      accelTopPeak: "0.00",
-      velocityTopPeak: "0.00",
-      dominantFreq: "0.00"
-    };
-  }
-
-  try {
-    // Convert ADC to acceleration (G)
-    const processedData = axisData.map(adc => adcToAccelerationG(adc));
-    
-    // Calculate velocity from acceleration
-    const accelerations = processedData.map(adc => accelerationGToMmPerSecSquared(adc));
-    const velocity = accelerationToVelocity(accelerations, timeInterval);
-
-    // Calculate FFT for both acceleration and velocity
-    const { magnitude: accelMagnitude, frequency: accelFrequency } = calculateFFT(processedData);
-    const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity);
-
-    // Check if we have valid magnitude data
-    if (!accelMagnitude || accelMagnitude.length === 0 || !velocityMagnitude || velocityMagnitude.length === 0) {
-      return {
-        accelTopPeak: "0.00",
-        velocityTopPeak: "0.00",
-        dominantFreq: "0.00"
-      };
-    }
-
-    // Remove DC component (first element) and find top peak for acceleration
-    const accelMagnitudeNoDC = accelMagnitude.slice(1);
-    const accelTopPeak = Math.max(...accelMagnitudeNoDC);
-
-    // Remove DC component (first element) and find top peak for velocity
-    const velocityMagnitudeNoDC = velocityMagnitude.slice(1);
-    const velocityTopPeak = Math.max(...velocityMagnitudeNoDC);
-
-    // Find dominant frequency (frequency of the highest velocity peak)
-    const velocityIndex = velocityMagnitude.indexOf(velocityTopPeak);
-    const dominantFreq = (velocityFrequency && velocityFrequency[velocityIndex] !== undefined) 
-      ? velocityFrequency[velocityIndex] 
-      : 0;
-
-    return {
-      accelTopPeak: (accelTopPeak * 0.707).toFixed(2),
-      velocityTopPeak: (velocityTopPeak * 0.707).toFixed(2),
-      dominantFreq: dominantFreq.toFixed(2)
-    };
-  } catch (error) {
-    console.error("Error in getAxisTopPeakStats:", error);
-    return {
-      accelTopPeak: "0.00",
-      velocityTopPeak: "0.00",
-      dominantFreq: "0.00"
-    };
-  }
-}
 
 // Add this helper function after the existing formatDate function
 const formatDateTime = (dateString: string) => {
@@ -523,6 +269,17 @@ const formatDateTime = (dateString: string) => {
     hour12: false,
     timeZone: 'UTC'
   })
+}
+
+// Function to determine card background color based on velocity value
+const getCardBackgroundColor = (velocityValue: number) => {
+  if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
+    return "bg-green-900" // Green for good condition
+  } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
+    return "bg-red-900" // Red for critical condition
+  } else {
+    return "bg-yellow-500" // Yellow for warning condition
+  }
 }
 
 export default function SensorDetailPage() {
@@ -840,7 +597,7 @@ export default function SensorDetailPage() {
           : sensorLastData.data.a
 
     // คำนวณช่วงเวลาตามอัตราการสุ่มตัวอย่าง
-    const timeInterval = 1 / SAMPLING_RATE;
+    const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
 
     // เตรียมข้อมูลสำหรับกราฟ
     const chartData = prepareChartData(rawAxisData, selectedUnit, timeInterval)
@@ -888,8 +645,8 @@ export default function SensorDetailPage() {
 
   const vibrationData = prepareVibrationData()
 
-  // Prepare stats for each axis
-  const timeInterval = 1 / SAMPLING_RATE;
+      // Prepare stats for each axis
+    const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
   const xStats = getAxisTopPeakStats(sensorLastData?.data?.h || [], timeInterval);
   const yStats = getAxisTopPeakStats(sensorLastData?.data?.v || [], timeInterval);
   const zStats = getAxisTopPeakStats(sensorLastData?.data?.a || [], timeInterval);
@@ -1166,58 +923,58 @@ export default function SensorDetailPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className="bg-green-900 border-gray-800">
+            <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(xStats.velocityTopPeak))}`}>
               <CardContent className="p-4">
                 <h3 className="text-white mb-2">Horizontal (H)</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Acceleration RMS</span>
+                    <span className="">Acceleration</span>
                     <span className="text-right text-white">{xStats.accelTopPeak}G</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Velocity RMS</span>
+                    <span className="">Velocity</span>
                     <span className="text-right text-white">{xStats.velocityTopPeak} mm/s</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Dominant Frequency</span>
+                    <span className="">Dominant Frequency</span>
                     <span className="text-right text-white">{xStats.dominantFreq} Hz</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-green-900 border-gray-800">
+            <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(yStats.velocityTopPeak))}`}>
               <CardContent className="p-4">
                 <h3 className="text-white mb-2">Vertical (V)</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Acceleration RMS</span>
+                    <span className="">Acceleration</span>
                     <span className="text-right text-white">{yStats.accelTopPeak}G</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Velocity RMS</span>
+                    <span className="">Velocity</span>
                     <span className="text-right text-white">{yStats.velocityTopPeak} mm/s</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Dominant Frequency</span>
+                    <span className="">Dominant Frequency</span>
                     <span className="text-right text-white">{yStats.dominantFreq} Hz</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-green-900 border-gray-800">
+            <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(zStats.velocityTopPeak))}`}>
               <CardContent className="p-4">
                 <h3 className="text-white mb-2">Axial (A)</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Acceleration RMS</span>
+                    <span className="">Acceleration</span>
                     <span className="text-right text-white">{zStats.accelTopPeak}G</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Velocity RMS</span>
+                    <span className="">Velocity</span>
                     <span className="text-right text-white">{zStats.velocityTopPeak} mm/s</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Dominant Frequency</span>
+                    <span className="">Dominant Frequency</span>
                     <span className="text-right text-white">{zStats.dominantFreq} Hz</span>
                   </div>
                 </div>
