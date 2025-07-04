@@ -112,17 +112,29 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
   }
 
   const getVibrationColor = (sensor: Sensor, axis: 'h' | 'v' | 'a') => {
+    // If sensor is offline, return gray color
     if (sensor.connectivity === "offline") {
       return "bg-gray-400"
     }
-    if (sensor.last_data && sensor.last_data.data) {
+    
+    // Calculate velocity-based vibration status using real data
+    if (sensor.connectivity === "online" && sensor.last_data) {
       const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
-      const axisData = axis === 'h' ? sensor.last_data.data.h :
-                      axis === 'v' ? sensor.last_data.data.v :
-                      sensor.last_data.data.a
+
+      // Get the correct data arrays based on axis
+      let axisData: number[] = []
+      if (axis === 'h' && sensor.last_data.last_32_h) {
+        axisData = sensor.last_data.last_32_h.flat()
+      } else if (axis === 'v' && sensor.last_data.last_32_v) {
+        axisData = sensor.last_data.last_32_v.flat()
+      } else if (axis === 'a' && sensor.last_data.last_32_a) {
+        axisData = sensor.last_data.last_32_a.flat()
+      }
+      
       if (axisData && axisData.length > 0) {
         const stats = getAxisTopPeakStats(axisData, timeInterval)
         const velocityValue = parseFloat(stats.velocityTopPeak)
+        
         if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
           return "bg-green-500"
         } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
@@ -132,7 +144,8 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
         }
       }
     }
-    // fallback
+    
+    // Fallback to sensor's stored vibration level
     const level = axis === 'h' ? sensor.vibrationH : axis === 'v' ? sensor.vibrationV : sensor.vibrationA
     switch (level) {
       case "normal": return "bg-green-500"
