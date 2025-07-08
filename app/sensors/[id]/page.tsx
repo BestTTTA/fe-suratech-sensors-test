@@ -305,11 +305,18 @@ export default function SensorDetailPage() {
   const [configError, setConfigError] = useState<string | null>(null)
   const [configSuccess, setConfigSuccess] = useState<string | null>(null)
   const [configData, setConfigData] = useState({
+    sensorName: "",
+    machineNumber: "",
+    installationPoint: "",
+    machineClass: "",
     fmax: 10000,
     lor: 6400,
     g_scale: 16,
-    alarm_ths: 5.0,
-    time_interval: 3
+    time_interval: 3,
+    thresholdMin: "",
+    thresholdMedium: "",
+    thresholdMax: "",
+    notes: ""
   })
 
   // ฟังก์ชันดึงข้อมูลล่าสุดจากเซ็นเซอร์
@@ -445,13 +452,13 @@ export default function SensorDetailPage() {
   // Update config data when sensorLastData changes
   useEffect(() => {
     if (sensorLastData) {
-      setConfigData({
+      setConfigData(prev => ({
+        ...prev,
         fmax: sensorLastData.fmax || 10000,
         lor: sensorLastData.lor || 6400,
         g_scale: sensorLastData.g_scale || 16,
-        alarm_ths: sensorLastData.alarm_ths || 5.0,
         time_interval: sensorLastData.time_interval || 3
-      })
+      }))
     }
   }, [sensorLastData])
 
@@ -492,11 +499,18 @@ export default function SensorDetailPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          sensor_name: configData.sensorName,
+          machine_number: configData.machineNumber,
+          installation_point: configData.installationPoint,
+          machine_class: configData.machineClass,
           fmax: configData.fmax,
           lor: configData.lor,
           g_scale: configData.g_scale,
-          alarm_ths: configData.alarm_ths,
-          time_interval: configData.time_interval
+          time_interval: configData.time_interval,
+          threshold_min: configData.machineClass === "other" ? Number(configData.thresholdMin) || 0 : 0,
+          threshold_medium: configData.machineClass === "other" ? Number(configData.thresholdMedium) || 0 : 0,
+          threshold_max: configData.machineClass === "other" ? Number(configData.thresholdMax) || 0 : 0,
+          note: configData.notes || ""
         }),
       })
 
@@ -1178,85 +1192,204 @@ export default function SensorDetailPage() {
               )}
 
               <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="sensorName" className="text-sm font-medium text-gray-300">
+                      Sensor Name
+                    </Label>
+                    <Input
+                      id="sensorName"
+                      value={configData.sensorName}
+                      onChange={(e) => handleConfigChange('sensorName', e.target.value)}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="e.g. Accelerometer 1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="machineNumber" className="text-sm font-medium text-gray-300">
+                      Machine Number
+                    </Label>
+                    <Input
+                      id="machineNumber"
+                      value={configData.machineNumber}
+                      onChange={(e) => handleConfigChange('machineNumber', e.target.value)}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="e.g. M-001"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <Label htmlFor="fmax" className="text-sm font-medium text-gray-300">
-                    Max Frequency (Hz)
+                  <Label htmlFor="installationPoint" className="text-sm font-medium text-gray-300">
+                    Installation Point
                   </Label>
                   <Input
-                    id="fmax"
-                    type="number"
-                    value={configData.fmax}
-                    onChange={(e) => handleConfigChange('fmax', Number(e.target.value))}
+                    id="installationPoint"
+                    value={configData.installationPoint}
+                    onChange={(e) => handleConfigChange('installationPoint', e.target.value)}
                     className="bg-gray-800 border-gray-700 text-white"
-                    min="1000"
-                    max="50000"
+                    placeholder="e.g. Bearing 1"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="lor" className="text-sm font-medium text-gray-300">
-                    LOR
-                  </Label>
-                  <Input
-                    id="lor"
-                    type="number"
-                    value={configData.lor}
-                    onChange={(e) => handleConfigChange('lor', Number(e.target.value))}
-                    className="bg-gray-800 border-gray-700 text-white"
-                    min="1000"
-                    max="20000"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="g_scale" className="text-sm font-medium text-gray-300">
-                    G-Scale
+                  <Label htmlFor="machineClass" className="text-sm font-medium text-gray-300">
+                    Machine Class
                   </Label>
                   <Select
-                    value={configData.g_scale.toString()}
-                    onValueChange={(value) => handleConfigChange('g_scale', Number(value))}
+                    value={configData.machineClass}
+                    onValueChange={(value) => handleConfigChange('machineClass', value)}
                   >
                     <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                      <SelectValue placeholder="Select G-Scale" />
+                      <SelectValue placeholder="Select class" />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-gray-700">
-                      <SelectItem value="2">±2G</SelectItem>
-                      <SelectItem value="4">±4G</SelectItem>
-                      <SelectItem value="8">±8G</SelectItem>
-                      <SelectItem value="16">±16G</SelectItem>
-                      <SelectItem value="32">±32G</SelectItem>
+                      <SelectItem value="small">Small Machines</SelectItem>
+                      <SelectItem value="medium">Medium Machines</SelectItem>
+                      <SelectItem value="largeRigid">Large rigid Machines</SelectItem>
+                      <SelectItem value="largeSoft">Large soft Machines</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="alarm_ths" className="text-sm font-medium text-gray-300">
-                    Alarm Threshold (mm/s)
-                  </Label>
-                  <Input
-                    id="alarm_ths"
-                    type="number"
-                    step="0.1"
-                    value={configData.alarm_ths}
-                    onChange={(e) => handleConfigChange('alarm_ths', Number(e.target.value))}
-                    className="bg-gray-800 border-gray-700 text-white"
-                    min="0"
-                    max="100"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="fmax" className="text-sm font-medium text-gray-300">
+                      Max Frequency (Hz)
+                    </Label>
+                    <Select
+                      value={configData.fmax.toString()}
+                      onValueChange={(value) => handleConfigChange('fmax', Number(value))}
+                    >
+                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-700">
+                        <SelectItem value="1000">1000 Hz</SelectItem>
+                        <SelectItem value="2500">2500 Hz</SelectItem>
+                        <SelectItem value="5000">5000 Hz</SelectItem>
+                        <SelectItem value="10000">10000 Hz</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="g_scale" className="text-sm font-medium text-gray-300">
+                      G-Scale
+                    </Label>
+                    <Select
+                      value={configData.g_scale.toString()}
+                      onValueChange={(value) => handleConfigChange('g_scale', Number(value))}
+                    >
+                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                        <SelectValue placeholder="Select G-Scale" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-700">
+                        <SelectItem value="2">2 G</SelectItem>
+                        <SelectItem value="4">4 G</SelectItem>
+                        <SelectItem value="8">8 G</SelectItem>
+                        <SelectItem value="16">16 G</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="lor" className="text-sm font-medium text-gray-300">
+                      LOR
+                    </Label>
+                    <Select
+                      value={configData.lor.toString()}
+                      onValueChange={(value) => handleConfigChange('lor', Number(value))}
+                    >
+                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                        <SelectValue placeholder="Select LOR" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-700">
+                        <SelectItem value="200">200</SelectItem>
+                        <SelectItem value="400">400</SelectItem>
+                        <SelectItem value="800">800</SelectItem>
+                        <SelectItem value="1600">1600</SelectItem>
+                        <SelectItem value="3200">3200</SelectItem>
+                        <SelectItem value="6400">6400</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="time_interval" className="text-sm font-medium text-gray-300">
+                      Time Interval (Hours)
+                    </Label>
+                    <Input
+                      id="time_interval"
+                      type="number"
+                      value={configData.time_interval}
+                      onChange={(e) => handleConfigChange('time_interval', Number(e.target.value))}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      min="1"
+                      max="3600"
+                      placeholder="e.g. 24"
+                    />
+                  </div>
+                </div>
+
+                {configData.machineClass === "other" && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label htmlFor="thresholdMin" className="text-sm font-medium text-gray-300">
+                        Threshold Min
+                      </Label>
+                      <Input
+                        id="thresholdMin"
+                        type="number"
+                        step="0.1"
+                        value={configData.thresholdMin}
+                        onChange={(e) => handleConfigChange('thresholdMin', e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="e.g. 2.5"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="thresholdMedium" className="text-sm font-medium text-gray-300">
+                        Threshold Medium
+                      </Label>
+                      <Input
+                        id="thresholdMedium"
+                        type="number"
+                        step="0.1"
+                        value={configData.thresholdMedium}
+                        onChange={(e) => handleConfigChange('thresholdMedium', e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="e.g. 5.0"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="thresholdMax" className="text-sm font-medium text-gray-300">
+                        Threshold Max
+                      </Label>
+                      <Input
+                        id="thresholdMax"
+                        type="number"
+                        step="0.1"
+                        value={configData.thresholdMax}
+                        onChange={(e) => handleConfigChange('thresholdMax', e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white"
+                        placeholder="e.g. 10.0"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <Label htmlFor="time_interval" className="text-sm font-medium text-gray-300">
-                    Time Interval (hours)
+                  <Label htmlFor="notes" className="text-sm font-medium text-gray-300">
+                    Notes
                   </Label>
                   <Input
-                    id="time_interval"
-                    type="number"
-                    value={configData.time_interval}
-                    onChange={(e) => handleConfigChange('time_interval', Number(e.target.value))}
+                    id="notes"
+                    value={configData.notes}
+                    onChange={(e) => handleConfigChange('notes', e.target.value)}
                     className="bg-gray-800 border-gray-700 text-white"
-                    min="1"
-                    max="3600"
+                    placeholder="Additional information"
                   />
                 </div>
               </div>
