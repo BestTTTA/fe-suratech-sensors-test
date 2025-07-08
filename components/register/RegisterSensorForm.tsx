@@ -42,16 +42,26 @@ const formSchema = z.object({
     .string()
     .min(4, { message: "Serial number must be at least 4 characters" })
     .max(20, { message: "Serial number must be less than 20 characters" }),
+  sensorName: z
+    .string()
+    .min(2, { message: "Sensor name must be at least 2 characters" })
+    .max(50, { message: "Sensor name must be less than 50 characters" }),
+  machineNumber: z
+    .string()
+    .min(1, { message: "Please enter machine number" }),
+  installationPoint: z
+    .string()
+    .min(2, { message: "Installation point must be at least 2 characters" }),
   machineClass: z.string({ required_error: "Please select a machine class" }),
   maxFrequency: z
     .string()
     .min(1, { message: "Please enter maximum frequency" }),
   lor: z.string({ required_error: "Please select LOR" }),
   gScale: z.string({ required_error: "Please select G-scale" }),
-  xAxis: z.string({ required_error: "Please select X-axis direction" }),
-  yAxis: z.string({ required_error: "Please select Y-axis direction" }),
-  zAxis: z.string({ required_error: "Please select Z-axis direction" }),
   timeInterval: z.string().min(1, { message: "Please enter time interval" }),
+  thresholdMin: z.string().optional(),
+  thresholdMedium: z.string().optional(),
+  thresholdMax: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -66,14 +76,17 @@ export default function RegisterSensorForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       serialNumber: "",
+      sensorName: "",
+      machineNumber: "",
+      installationPoint: "",
       machineClass: "",
       maxFrequency: "",
       lor: "",
       gScale: "",
-      xAxis: "",
-      yAxis: "",
-      zAxis: "",
       timeInterval: "",
+      thresholdMin: "",
+      thresholdMedium: "",
+      thresholdMax: "",
       notes: "",
     },
   });
@@ -105,14 +118,17 @@ export default function RegisterSensorForm() {
       // Map form values to API payload
       const payload = {
         serial_number: values.serialNumber,
+        sensor_name: values.sensorName,
+        machine_number: values.machineNumber,
+        installation_point: values.installationPoint,
         machine_class: values.machineClass,
         max_frequency: Number(values.maxFrequency),
         g_scale: Number(values.gScale),
         lor: Number(values.lor),
         time_interval: Number(values.timeInterval),
-        x_axis: values.xAxis,
-        y_axis: values.yAxis,
-        z_axis: values.zAxis,
+        threshold_min: values.machineClass === "other" ? Number(values.thresholdMin) || 0 : 0,
+        threshold_medium: values.machineClass === "other" ? Number(values.thresholdMedium) || 0 : 0,
+        threshold_max: values.machineClass === "other" ? Number(values.thresholdMax) || 0 : 0,
         note: values.notes || "",
       };
 
@@ -180,6 +196,45 @@ export default function RegisterSensorForm() {
                 />
                 <FormField
                   control={form.control}
+                  name="sensorName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sensor Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Accelerometer 1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="machineNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Machine Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. M-001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="installationPoint"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Installation Point</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Bearing 1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="machineClass"
                   render={({ field }) => (
                     <FormItem>
@@ -204,6 +259,9 @@ export default function RegisterSensorForm() {
                           <SelectItem value="largeSoft">
                             Large soft Machines
                           </SelectItem>
+                          <SelectItem value="other">
+                            Other
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -216,83 +274,20 @@ export default function RegisterSensorForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Maximum frequency (Hz)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. 3200" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="xAxis"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>X-axis</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
+                            <SelectValue placeholder="Select frequency" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="vertical">Vertical</SelectItem>
-                          <SelectItem value="horizontal">Horizontal</SelectItem>
-                          <SelectItem value="axial">Axial</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="gScale"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>G-scale</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select G-scale" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="2">2 G</SelectItem>
-                          <SelectItem value="4">4 G</SelectItem>
-                          <SelectItem value="8">8 G</SelectItem>
-                          <SelectItem value="16">16 G</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="yAxis"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Y-axis</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="vertical">Vertical</SelectItem>
-                          <SelectItem value="horizontal">Horizontal</SelectItem>
-                          <SelectItem value="axial">Axial</SelectItem>
+                          <SelectItem value="1000">1000 Hz</SelectItem>
+                          <SelectItem value="2500">2500 Hz</SelectItem>
+                          <SelectItem value="5000">5000 Hz</SelectItem>
+                          <SelectItem value="10000">10000 Hz</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -329,23 +324,24 @@ export default function RegisterSensorForm() {
                 />
                 <FormField
                   control={form.control}
-                  name="zAxis"
+                  name="gScale"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Z-axis</FormLabel>
+                      <FormLabel>G-scale</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Vertical, Horizontal, Axial" />
+                            <SelectValue placeholder="Select G-scale" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="vertical">Vertical</SelectItem>
-                          <SelectItem value="horizontal">Horizontal</SelectItem>
-                          <SelectItem value="axial">Axial</SelectItem>
+                          <SelectItem value="2">2 G</SelectItem>
+                          <SelectItem value="4">4 G</SelectItem>
+                          <SelectItem value="8">8 G</SelectItem>
+                          <SelectItem value="16">16 G</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -357,14 +353,69 @@ export default function RegisterSensorForm() {
                   name="timeInterval"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Time Interval</FormLabel>
+                      <FormLabel>Time Interval (Hours)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. 20 ms" {...field} />
+                        <Input placeholder="e.g. 24" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {form.watch("machineClass") === "other" && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="thresholdMin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Threshold Min</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              placeholder="e.g. 2.5" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="thresholdMedium"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Threshold Medium</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              placeholder="e.g. 5.0" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="thresholdMax"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Threshold Max</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              placeholder="e.g. 10.0" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
                 <FormField
                   control={form.control}
                   name="notes"
