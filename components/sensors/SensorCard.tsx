@@ -1,12 +1,13 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Battery, Wifi, MoreHorizontal } from "lucide-react"
-import type { Sensor } from "@/lib/types"
-import { formatRawTime, getSignalStrength, getSignalStrengthLabel } from "@/lib/utils"
+import { formatRawTime, getSignalStrength } from "@/lib/utils"
 import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
+import type { Sensor } from "@/lib/types"
 
 interface SensorCardProps {
   sensor: Sensor
@@ -14,6 +15,40 @@ interface SensorCardProps {
 }
 
 export default function SensorCard({ sensor, onClick }: SensorCardProps) {
+  // Add state for axis configuration
+  const [axisConfig, setAxisConfig] = useState({
+    hAxisEnabled: true,
+    vAxisEnabled: true,
+    aAxisEnabled: true
+  })
+
+  // Fetch sensor configuration on component mount
+  useEffect(() => {
+    const fetchSensorConfig = async () => {
+      try {
+        const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensor.id}/config`, {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
+        if (response.ok) {
+          const configData = await response.json()
+          setAxisConfig({
+            hAxisEnabled: configData.h_axis_enabled !== false, // Default to true if not specified
+            vAxisEnabled: configData.v_axis_enabled !== false, // Default to true if not specified
+            aAxisEnabled: configData.a_axis_enabled !== false  // Default to true if not specified
+          })
+        }
+      } catch (error) {
+        // Error fetching sensor config - use default values (all enabled)
+        console.log("Could not fetch sensor configuration, using defaults")
+      }
+    }
+
+    fetchSensorConfig()
+  }, [sensor.id])
+
   // Safely access sensor properties with fallbacks
   const safeModel = sensor?.model || "Unknown Model"
   const safeName = sensor?.name || "Unknown Sensor"
@@ -62,13 +97,21 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
 
     
     // Determine vibration level based on velocity values
+    // For now, use constants since we don't have individual sensor thresholds in the card view
+    // In a real implementation, you would fetch sensor-specific thresholds
     const getVelocityLevel = (velocityValue: number) => {
-      if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
+      const minThreshold = SENSOR_CONSTANTS.MIN_TRASH_HOLE
+      const mediumThreshold = (minThreshold + SENSOR_CONSTANTS.MAX_TRASH_HOLE) / 2
+      const maxThreshold = SENSOR_CONSTANTS.MAX_TRASH_HOLE
+      
+      if (velocityValue < minThreshold) {
         return "normal"
-      } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
-        return "critical"
-      } else {
+      } else if (velocityValue >= minThreshold && velocityValue < mediumThreshold) {
         return "warning"
+      } else if (velocityValue >= mediumThreshold && velocityValue < maxThreshold) {
+        return "concern"
+      } else {
+        return "critical"
       }
     }
     
@@ -101,6 +144,8 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
         return "bg-green-500"
       case "warning":
         return "bg-yellow-500"
+      case "concern":
+        return "bg-orange-500"
       case "critical":
         return "bg-red-500"
       default:
@@ -213,20 +258,26 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
           )}
         </div>
 
-        {/* Vibration Indicators with Labels */}
+        {/* Vibration Indicators with Labels - Conditionally rendered based on axis configuration */}
         <div className="flex justify-end gap-2 mb-2">
-          <div className="flex flex-col items-center">
-            <span className="text-xs font-bold text-black mb-1">H</span>
-            <div className={`w-4 h-8 ${getVibrationColor(displayVibrationH)} rounded-full border border-gray-600`}></div>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xs font-bold text-black mb-1">V</span>
-            <div className={`w-4 h-8 ${getVibrationColor(displayVibrationV)} rounded-full border border-gray-600`}></div>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xs font-bold text-black mb-1">A</span>
-            <div className={`w-4 h-8 ${getVibrationColor(displayVibrationA)} rounded-full border border-gray-600`}></div>
-          </div>
+          {axisConfig.hAxisEnabled && (
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-bold text-black mb-1">H</span>
+              <div className={`w-4 h-8 ${getVibrationColor(displayVibrationH)} rounded-full border border-gray-600`}></div>
+            </div>
+          )}
+          {axisConfig.vAxisEnabled && (
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-bold text-black mb-1">V</span>
+              <div className={`w-4 h-8 ${getVibrationColor(displayVibrationV)} rounded-full border border-gray-600`}></div>
+            </div>
+          )}
+          {axisConfig.aAxisEnabled && (
+            <div className="flex flex-col items-center">
+              <span className="text-xs font-bold text-black mb-1">A</span>
+              <div className={`w-4 h-8 ${getVibrationColor(displayVibrationA)} rounded-full border border-gray-600`}></div>
+            </div>
+          )}
         </div>
 
         {/* Timestamp */}

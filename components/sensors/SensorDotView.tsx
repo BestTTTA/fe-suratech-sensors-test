@@ -56,8 +56,11 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const sensorsPerPage = 200 // Maximum sensors per page for dot view
+  const sensorsPerPage = 200 // More sensors per page for dot view
   const hasInitiallyLoaded = useRef(false)
+
+  // Add state for axis configuration
+  const [axisConfigs, setAxisConfigs] = useState<Record<string, { hAxisEnabled: boolean; vAxisEnabled: boolean; aAxisEnabled: boolean }>>({})
 
   const fetchSensors = useCallback(
     async (isManualRefresh = false) => {
@@ -74,6 +77,48 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
         setSensors(fetchedSensors)
         setTotalPages(Math.ceil(total / sensorsPerPage))
         hasInitiallyLoaded.current = true
+
+        // Fetch axis configurations for all sensors
+        const configPromises = fetchedSensors.map(async (sensor) => {
+          try {
+            const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensor.id}/config`, {
+              cache: "no-store",
+              headers: {
+                "Cache-Control": "no-cache",
+              },
+            })
+            if (response.ok) {
+              const configData = await response.json()
+              return {
+                sensorId: sensor.id,
+                config: {
+                  hAxisEnabled: configData.h_axis_enabled !== false,
+                  vAxisEnabled: configData.v_axis_enabled !== false,
+                  aAxisEnabled: configData.a_axis_enabled !== false
+                }
+              }
+            }
+          } catch (error) {
+            // Use default values if config fetch fails
+            return {
+              sensorId: sensor.id,
+              config: {
+                hAxisEnabled: true,
+                vAxisEnabled: true,
+                aAxisEnabled: true
+              }
+            }
+          }
+        })
+
+        const configResults = await Promise.all(configPromises)
+        const newAxisConfigs: Record<string, { hAxisEnabled: boolean; vAxisEnabled: boolean; aAxisEnabled: boolean }> = {}
+        configResults.forEach(result => {
+          if (result) {
+            newAxisConfigs[result.sensorId] = result.config
+          }
+        })
+        setAxisConfigs(newAxisConfigs)
 
         if (onRefresh) {
           onRefresh()
@@ -100,6 +145,14 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
       fetchSensors(false)
     }
   }, [page]) // Only when page changes
+
+  // Set up global refresh function for external triggers
+  useEffect(() => {
+    window.refreshSensorData = () => fetchSensors(true)
+    return () => {
+      delete window.refreshSensorData
+    }
+  }, [fetchSensors])
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
     setPage(value)
@@ -135,12 +188,20 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
         const stats = getAxisTopPeakStats(axisData, timeInterval)
         const velocityValue = parseFloat(stats.velocityTopPeak)
         
-        if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
+        // For dot view, we don't have individual sensor thresholds, so use constants
+        // In a real implementation, you would fetch sensor-specific thresholds
+        const minThreshold = SENSOR_CONSTANTS.MIN_TRASH_HOLE
+        const mediumThreshold = (minThreshold + SENSOR_CONSTANTS.MAX_TRASH_HOLE) / 2
+        const maxThreshold = SENSOR_CONSTANTS.MAX_TRASH_HOLE
+        
+        if (velocityValue < minThreshold) {
           return "bg-green-500"
-        } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
-          return "bg-red-500"
-        } else {
+        } else if (velocityValue >= minThreshold && velocityValue < mediumThreshold) {
           return "bg-yellow-500"
+        } else if (velocityValue >= mediumThreshold && velocityValue < maxThreshold) {
+          return "bg-orange-500"
+        } else {
+          return "bg-red-500"
         }
       }
     }
@@ -171,61 +232,84 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
 
   if (loading && !hasInitiallyLoaded.current) {
     return (
-      <div className="grid grid-cols-50 gap-2">
-        {Array.from({ length: 100 }).map((_, i) => (
-          <div key={i} className="w-8 h-8 rounded-full bg-gray-800 animate-pulse border border-gray-700" />
-        ))}
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-2">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div key={i} className="h-32 bg-gray-800 animate-pulse rounded-lg" />
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <TooltipProvider>
-        <div className="grid grid-cols-50 gap-10">
+    <TooltipProvider>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-2">
           {sensors.map((sensor) => {
-            const safeReadings = sensor?.readings || []
-            const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
-            const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
-
+            const currentTemp = sensor.last_data?.temperature || 0
+            const axisConfig = axisConfigs[sensor.id] || { hAxisEnabled: true, vAxisEnabled: true, aAxisEnabled: true }
+            
             return (
               <Tooltip key={sensor.id}>
                 <TooltipTrigger asChild>
                   <div
-                    className={`w-8 h-8 rounded-full flex flex-col items-center justify-center cursor-pointer border border-[1.5px] ${getConnectivityBorder(sensor.connectivity || "offline")} bg-gray-900 hover:bg-gray-800 transition-colors`}
+                    className={`relative w-full h-32 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:scale-105 ${getConnectivityBorder(sensor.connectivity)} bg-gray-900`}
                     onClick={() => handleSensorClick(sensor.id)}
                   >
-                    <span className={`font-bold text-[10px] ${getTemperatureColor(currentTemp)}`}>
-                      {currentTemp > 0 ? currentTemp : "0"}
-                    </span>
-                    <div className="flex space-x-0.5 mt-0.5">
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'h')}`} />
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'v')}`} />
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'a')}`} />
+                    {/* Sensor Status Indicator */}
+                    <div className="absolute top-2 left-2">
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Temperature Display */}
+                    <div className="absolute top-2 right-2">
+                      <span className={`text-xs font-bold ${getTemperatureColor(currentTemp)}`}>
+                        {currentTemp}°C
+                      </span>
+                    </div>
+
+                    {/* Sensor Name */}
+                    <div className="absolute bottom-8 left-2 right-2">
+                      <div className="text-xs font-medium text-white truncate">
+                        {sensor.name || "Unknown Sensor"}
+                      </div>
+                    </div>
+
+                    {/* Vibration Indicators - Conditionally rendered based on axis configuration */}
+                    <div className="absolute bottom-2 left-2 right-2 flex justify-center gap-1">
+                      {axisConfig.hAxisEnabled && (
+                        <div className={`w-2 h-6 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
+                      )}
+                      {axisConfig.vAxisEnabled && (
+                        <div className={`w-2 h-6 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
+                      )}
+                      {axisConfig.aAxisEnabled && (
+                        <div className={`w-2 h-6 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
+                      )}
                     </div>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white">
-                  <div className="space-y-1 text-xs">
-                    <div className="font-semibold">{sensor.name || "Unknown Sensor"}</div>
-                    <div className="text-gray-400">{sensor.model || "Unknown Model"}</div>
-                    <div className="text-gray-400">{sensor.machineName || "Unknown Machine"}</div>
-                    <div className="flex items-center space-x-2">
-                      <span>Temp: {currentTemp}°C</span>
-                      <span>Battery: {sensor.batteryLevel || 0}%</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span>Status:</span>
-                      <div className={`w-2 h-2 ${sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"} rounded-full`} />
-                      <span className="text-xs">{sensor.connectivity || "offline"}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span>Vibration:</span>
-                      <div className="flex space-x-0.5">
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'h')} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'v')} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'a')} rounded-full`} />
-                      </div>
+                <TooltipContent className="bg-gray-800 border-gray-700 text-white">
+                  <div className="space-y-1">
+                    <div className="font-medium">{sensor.name || "Unknown Sensor"}</div>
+                    <div className="text-sm">
+                      <div>Status: {sensor.operationalStatus}</div>
+                      <div>Temperature: {currentTemp}°C</div>
+                      <div>Connectivity: {sensor.connectivity}</div>
+                      {axisConfig.hAxisEnabled && (
+                        <div>H-Axis: {sensor.vibrationH}</div>
+                      )}
+                      {axisConfig.vAxisEnabled && (
+                        <div>V-Axis: {sensor.vibrationV}</div>
+                      )}
+                      {axisConfig.aAxisEnabled && (
+                        <div>A-Axis: {sensor.vibrationA}</div>
+                      )}
                     </div>
                   </div>
                 </TooltipContent>
@@ -233,21 +317,28 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
             )
           })}
         </div>
-      </TooltipProvider>
 
-      <div className="flex justify-center mt-6">
-        <ThemeProvider theme={paginationTheme}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-            size="large"
-            showFirstButton
-            showLastButton
-          />
-        </ThemeProvider>
+        <div className="flex justify-center mt-6">
+          <ThemeProvider theme={paginationTheme}>
+            <Pagination
+              count={totalPages}
+              page={page}
+              onChange={handlePageChange}
+              color="primary"
+              size="large"
+              showFirstButton
+              showLastButton
+            />
+          </ThemeProvider>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
+}
+
+// Extend window interface for TypeScript
+declare global {
+  interface Window {
+    refreshSensorData?: () => void
+  }
 } 

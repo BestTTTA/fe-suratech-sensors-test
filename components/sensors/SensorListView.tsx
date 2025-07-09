@@ -7,7 +7,6 @@ import { Pagination } from "@mui/material"
 import { createTheme, ThemeProvider } from "@mui/material/styles"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
-import { Badge } from "@/components/ui/badge"
 import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
 
 // Create a custom MUI theme for the pagination component
@@ -56,8 +55,11 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const sensorsPerPage = 200 // More sensors per page for simple list view
+  const sensorsPerPage = 50
   const hasInitiallyLoaded = useRef(false)
+
+  // Add state for axis configuration
+  const [axisConfigs, setAxisConfigs] = useState<Record<string, { hAxisEnabled: boolean; vAxisEnabled: boolean; aAxisEnabled: boolean }>>({})
 
   const fetchSensors = useCallback(
     async (isManualRefresh = false) => {
@@ -74,6 +76,48 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
         setSensors(fetchedSensors)
         setTotalPages(Math.ceil(total / sensorsPerPage))
         hasInitiallyLoaded.current = true
+
+        // Fetch axis configurations for all sensors
+        const configPromises = fetchedSensors.map(async (sensor) => {
+          try {
+            const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensor.id}/config`, {
+              cache: "no-store",
+              headers: {
+                "Cache-Control": "no-cache",
+              },
+            })
+            if (response.ok) {
+              const configData = await response.json()
+              return {
+                sensorId: sensor.id,
+                config: {
+                  hAxisEnabled: configData.h_axis_enabled !== false,
+                  vAxisEnabled: configData.v_axis_enabled !== false,
+                  aAxisEnabled: configData.a_axis_enabled !== false
+                }
+              }
+            }
+          } catch (error) {
+            // Use default values if config fetch fails
+            return {
+              sensorId: sensor.id,
+              config: {
+                hAxisEnabled: true,
+                vAxisEnabled: true,
+                aAxisEnabled: true
+              }
+            }
+          }
+        })
+
+        const configResults = await Promise.all(configPromises)
+        const newAxisConfigs: Record<string, { hAxisEnabled: boolean; vAxisEnabled: boolean; aAxisEnabled: boolean }> = {}
+        configResults.forEach(result => {
+          if (result) {
+            newAxisConfigs[result.sensorId] = result.config
+          }
+        })
+        setAxisConfigs(newAxisConfigs)
 
         if (onRefresh) {
           onRefresh()
@@ -100,6 +144,14 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
       fetchSensors(false)
     }
   }, [page]) // Only when page changes
+
+  // Set up global refresh function for external triggers
+  useEffect(() => {
+    window.refreshSensorData = () => fetchSensors(true)
+    return () => {
+      delete window.refreshSensorData
+    }
+  }, [fetchSensors])
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
     setPage(value)
@@ -148,12 +200,20 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
         const stats = getAxisTopPeakStats(axisData, timeInterval)
         const velocityValue = parseFloat(stats.velocityTopPeak)
         
-        if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
+        // For list view, we don't have individual sensor thresholds, so use constants
+        // In a real implementation, you would fetch sensor-specific thresholds
+        const minThreshold = SENSOR_CONSTANTS.MIN_TRASH_HOLE
+        const mediumThreshold = (minThreshold + SENSOR_CONSTANTS.MAX_TRASH_HOLE) / 2
+        const maxThreshold = SENSOR_CONSTANTS.MAX_TRASH_HOLE
+        
+        if (velocityValue < minThreshold) {
           return "bg-green-500"
-        } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
-          return "bg-red-500"
-        } else {
+        } else if (velocityValue >= minThreshold && velocityValue < mediumThreshold) {
           return "bg-yellow-500"
+        } else if (velocityValue >= mediumThreshold && velocityValue < maxThreshold) {
+          return "bg-orange-500"
+        } else {
+          return "bg-red-500"
         }
       }
     }
@@ -204,49 +264,43 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
           <div className="flex items-center px-2 py-0.5 bg-gray-800 rounded text-xs font-semibold text-gray-300">
             <div className="flex-1">Sensor Name</div>
             <div className="w-12 text-center">Status</div>
-            <div className="w-16 text-center">H</div>
-            <div className="w-16 text-center">V</div>
-            <div className="w-16 text-center">A</div>
+            {axisConfigs[sensors[0]?.id]?.hAxisEnabled && <div className="w-16 text-center">H</div>}
+            {axisConfigs[sensors[0]?.id]?.vAxisEnabled && <div className="w-16 text-center">V</div>}
+            {axisConfigs[sensors[0]?.id]?.aAxisEnabled && <div className="w-16 text-center">A</div>}
             <div className="w-20 text-center">Temp</div>
           </div>
           <div className="space-y-0">
             {sensors.slice(0, Math.ceil(sensors.length / 3)).map((sensor) => {
-              const safeReadings = sensor?.readings || []
-              const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
-              const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
-
+              const currentTemp = sensor.last_data?.temperature || 0
+              const axisConfig = axisConfigs[sensor.id] || { hAxisEnabled: true, vAxisEnabled: true, aAxisEnabled: true }
+              
               return (
                 <div
                   key={sensor.id}
-                  className="flex items-center px-2 py-0.5 bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer rounded text-xs border-b border-gray-800"
+                  className="flex items-center px-2 py-1 hover:bg-gray-800 cursor-pointer border-b border-gray-700"
                   onClick={() => handleSensorClick(sensor.id)}
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-1">
-                      <div
-                        className={`w-1 h-1 rounded-full ${
-                          sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"
-                        }`}
-                      />
-                      <div>
-                        <div className="font-medium text-white text-xs">
-                          {sensor.name || "Unknown Sensor"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <div className="flex-1 text-sm">{sensor.name}</div>
                   <div className="w-12 flex justify-center">
-                    <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
+                    <span className={`px-2 py-1 rounded text-xs ${getStatusColor(sensor.operationalStatus)}`}>
+                      {sensor.operationalStatus}
+                    </span>
                   </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
-                  </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
-                  </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
-                  </div>
+                  {axisConfig.hAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
+                  {axisConfig.vAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
+                  {axisConfig.aAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
                   <div className="w-20 flex justify-center">
                     <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
                       {currentTemp > 0 ? currentTemp : "0"}°C
@@ -263,49 +317,43 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
           <div className="flex items-center px-2 py-0.5 bg-gray-800 rounded text-xs font-semibold text-gray-300">
             <div className="flex-1">Sensor Name</div>
             <div className="w-12 text-center">Status</div>
-            <div className="w-16 text-center">H</div>
-            <div className="w-16 text-center">V</div>
-            <div className="w-16 text-center">A</div>
+            {axisConfigs[sensors[Math.ceil(sensors.length / 3)]?.id]?.hAxisEnabled && <div className="w-16 text-center">H</div>}
+            {axisConfigs[sensors[Math.ceil(sensors.length / 3)]?.id]?.vAxisEnabled && <div className="w-16 text-center">V</div>}
+            {axisConfigs[sensors[Math.ceil(sensors.length / 3)]?.id]?.aAxisEnabled && <div className="w-16 text-center">A</div>}
             <div className="w-20 text-center">Temp</div>
           </div>
           <div className="space-y-0">
             {sensors.slice(Math.ceil(sensors.length / 3), Math.ceil(sensors.length * 2 / 3)).map((sensor) => {
-              const safeReadings = sensor?.readings || []
-              const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
-              const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
-
+              const currentTemp = sensor.last_data?.temperature || 0
+              const axisConfig = axisConfigs[sensor.id] || { hAxisEnabled: true, vAxisEnabled: true, aAxisEnabled: true }
+              
               return (
                 <div
                   key={sensor.id}
-                  className="flex items-center px-2 py-0.5 bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer rounded text-xs border-b border-gray-800"
+                  className="flex items-center px-2 py-1 hover:bg-gray-800 cursor-pointer border-b border-gray-700"
                   onClick={() => handleSensorClick(sensor.id)}
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-1">
-                      <div
-                        className={`w-1 h-1 rounded-full ${
-                          sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"
-                        }`}
-                      />
-                      <div>
-                        <div className="font-medium text-white text-xs">
-                          {sensor.name || "Unknown Sensor"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <div className="flex-1 text-sm">{sensor.name}</div>
                   <div className="w-12 flex justify-center">
-                    <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
+                    <span className={`px-2 py-1 rounded text-xs ${getStatusColor(sensor.operationalStatus)}`}>
+                      {sensor.operationalStatus}
+                    </span>
                   </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
-                  </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
-                  </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
-                  </div>
+                  {axisConfig.hAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
+                  {axisConfig.vAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
+                  {axisConfig.aAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
                   <div className="w-20 flex justify-center">
                     <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
                       {currentTemp > 0 ? currentTemp : "0"}°C
@@ -322,49 +370,43 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
           <div className="flex items-center px-2 py-0.5 bg-gray-800 rounded text-xs font-semibold text-gray-300">
             <div className="flex-1">Sensor Name</div>
             <div className="w-12 text-center">Status</div>
-            <div className="w-16 text-center">H</div>
-            <div className="w-16 text-center">V</div>
-            <div className="w-16 text-center">A</div>
+            {axisConfigs[sensors[Math.ceil(sensors.length * 2 / 3)]?.id]?.hAxisEnabled && <div className="w-16 text-center">H</div>}
+            {axisConfigs[sensors[Math.ceil(sensors.length * 2 / 3)]?.id]?.vAxisEnabled && <div className="w-16 text-center">V</div>}
+            {axisConfigs[sensors[Math.ceil(sensors.length * 2 / 3)]?.id]?.aAxisEnabled && <div className="w-16 text-center">A</div>}
             <div className="w-20 text-center">Temp</div>
           </div>
           <div className="space-y-0">
             {sensors.slice(Math.ceil(sensors.length * 2 / 3)).map((sensor) => {
-              const safeReadings = sensor?.readings || []
-              const latestReading = safeReadings.length > 0 ? safeReadings[safeReadings.length - 1] : null
-              const currentTemp = latestReading ? Math.round(latestReading.temperature) : 0
-
+              const currentTemp = sensor.last_data?.temperature || 0
+              const axisConfig = axisConfigs[sensor.id] || { hAxisEnabled: true, vAxisEnabled: true, aAxisEnabled: true }
+              
               return (
                 <div
                   key={sensor.id}
-                  className="flex items-center px-2 py-0.5 bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer rounded text-xs border-b border-gray-800"
+                  className="flex items-center px-2 py-1 hover:bg-gray-800 cursor-pointer border-b border-gray-700"
                   onClick={() => handleSensorClick(sensor.id)}
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-1">
-                      <div
-                        className={`w-1 h-1 rounded-full ${
-                          sensor.connectivity === "online" ? "bg-green-500" : "bg-gray-500"
-                        }`}
-                      />
-                      <div>
-                        <div className="font-medium text-white text-xs">
-                          {sensor.name || "Unknown Sensor"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <div className="flex-1 text-sm">{sensor.name}</div>
                   <div className="w-12 flex justify-center">
-                    <div className={`w-2 h-2 rounded-full ${getStatusColor(sensor.operationalStatus || "standby").replace('text-white', '')}`} />
+                    <span className={`px-2 py-1 rounded text-xs ${getStatusColor(sensor.operationalStatus)}`}>
+                      {sensor.operationalStatus}
+                    </span>
                   </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
-                  </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
-                  </div>
-                  <div className="w-16 flex justify-center">
-                    <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
-                  </div>
+                  {axisConfig.hAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'h')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
+                  {axisConfig.vAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'v')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
+                  {axisConfig.aAxisEnabled && (
+                    <div className="w-16 flex justify-center">
+                      <div className={`w-1 h-2 ${getVibrationColor(sensor, 'a')} rounded-full border border-gray-600`} />
+                    </div>
+                  )}
                   <div className="w-20 flex justify-center">
                     <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
                       {currentTemp > 0 ? currentTemp : "0"}°C
@@ -377,14 +419,14 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
         </div>
       </div>
 
-      <div className="flex justify-center mt-1">
+      <div className="flex justify-center mt-6">
         <ThemeProvider theme={paginationTheme}>
           <Pagination
             count={totalPages}
             page={page}
             onChange={handlePageChange}
             color="primary"
-            size="small"
+            size="large"
             showFirstButton
             showLastButton
           />
@@ -392,4 +434,11 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
       </div>
     </div>
   )
+}
+
+// Extend window interface for TypeScript
+declare global {
+  interface Window {
+    refreshSensorData?: () => void
+  }
 } 

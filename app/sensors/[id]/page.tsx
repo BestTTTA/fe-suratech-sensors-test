@@ -269,16 +269,7 @@ const formatDateTime = (dateString: string) => {
   })
 }
 
-// Function to determine card background color based on velocity value
-const getCardBackgroundColor = (velocityValue: number) => {
-  if (velocityValue < SENSOR_CONSTANTS.MIN_TRASH_HOLE) {
-    return "bg-green-900" // Green for good condition
-  } else if (velocityValue > SENSOR_CONSTANTS.MAX_TRASH_HOLE) {
-    return "bg-red-900" // Red for critical condition
-  } else {
-    return "bg-yellow-500" // Yellow for warning condition
-  }
-}
+
 
 export default function SensorDetailPage() {
   const router = useRouter()
@@ -319,7 +310,11 @@ export default function SensorDetailPage() {
     thresholdMin: "",
     thresholdMedium: "",
     thresholdMax: "",
-    notes: ""
+    notes: "",
+    // Add axis direction configuration
+    hAxisEnabled: true,
+    vAxisEnabled: true,
+    aAxisEnabled: true
   })
 
   // ฟังก์ชันดึงข้อมูลล่าสุดจากเซ็นเซอร์
@@ -466,7 +461,11 @@ export default function SensorDetailPage() {
           thresholdMin: configData.threshold_min?.toString() || "",
           thresholdMedium: configData.threshold_medium?.toString() || "",
           thresholdMax: configData.threshold_max?.toString() || "",
-          notes: configData.note || ""
+          notes: configData.note || "",
+          // Add axis direction configuration with defaults
+          hAxisEnabled: configData.h_axis_enabled !== false, // Default to true if not specified
+          vAxisEnabled: configData.v_axis_enabled !== false, // Default to true if not specified
+          aAxisEnabled: configData.a_axis_enabled !== false  // Default to true if not specified
         }))
       }
     } catch (error) {
@@ -555,10 +554,14 @@ export default function SensorDetailPage() {
           lor: configData.lor,
           g_scale: configData.g_scale,
           time_interval: configData.time_interval,
-          threshold_min: configData.machineClass === "other" ? Number(configData.thresholdMin) || 0 : 0,
-          threshold_medium: configData.machineClass === "other" ? Number(configData.thresholdMedium) || 0 : 0,
-          threshold_max: configData.machineClass === "other" ? Number(configData.thresholdMax) || 0 : 0,
-          note: configData.notes || ""
+          threshold_min: Number(configData.thresholdMin) || 0,
+          threshold_medium: Number(configData.thresholdMedium) || 0,
+          threshold_max: Number(configData.thresholdMax) || 0,
+          note: configData.notes || "",
+          // Add axis direction configuration
+          h_axis_enabled: configData.hAxisEnabled,
+          v_axis_enabled: configData.vAxisEnabled,
+          a_axis_enabled: configData.aAxisEnabled
         }),
       })
 
@@ -587,7 +590,10 @@ export default function SensorDetailPage() {
         thresholdMin: configData.thresholdMin,
         thresholdMedium: configData.thresholdMedium,
         thresholdMax: configData.thresholdMax,
-        notes: configData.notes
+        notes: configData.notes,
+        hAxisEnabled: configData.hAxisEnabled,
+        vAxisEnabled: configData.vAxisEnabled,
+        aAxisEnabled: configData.aAxisEnabled
       }))
       
       // Close modal after a short delay to show success message
@@ -605,12 +611,38 @@ export default function SensorDetailPage() {
     }
   }
 
-  const handleConfigChange = useCallback((field: string, value: string | number) => {
+  const handleConfigChange = useCallback((field: string, value: string | number | boolean) => {
     setConfigData(prev => ({
       ...prev,
       [field]: value
     }))
   }, [])
+
+  // Function to determine card background color based on velocity value and API configuration
+  const getCardBackgroundColor = useCallback((velocityValue: number) => {
+    // Use API configuration thresholds if available, otherwise fall back to constants
+    const minThreshold = configData.thresholdMin 
+      ? Number(configData.thresholdMin) 
+      : SENSOR_CONSTANTS.MIN_TRASH_HOLE
+    
+    const mediumThreshold = configData.thresholdMedium 
+      ? Number(configData.thresholdMedium) 
+      : (minThreshold + (SENSOR_CONSTANTS.MAX_TRASH_HOLE - SENSOR_CONSTANTS.MIN_TRASH_HOLE) / 2)
+    
+    const maxThreshold = configData.thresholdMax 
+      ? Number(configData.thresholdMax) 
+      : SENSOR_CONSTANTS.MAX_TRASH_HOLE
+    
+    if (velocityValue < minThreshold) {
+      return "bg-green-900" // Normal - Green
+    } else if (velocityValue >= minThreshold && velocityValue < mediumThreshold) {
+      return "bg-yellow-900" // Warning - Yellow
+    } else if (velocityValue >= mediumThreshold && velocityValue < maxThreshold) {
+      return "bg-orange-900" // Concern - Orange
+    } else {
+      return "bg-red-900"   // Critical - Red
+    }
+  }, [configData.thresholdMin, configData.thresholdMedium, configData.thresholdMax])
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
@@ -1042,63 +1074,75 @@ export default function SensorDetailPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(xStats.velocityTopPeak))}`}>
-              <CardContent className="p-4">
-                <h3 className="text-white mb-2">Horizontal (H)</h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="">Acceleration</span>
-                    <span className="text-right text-white">{xStats.accelTopPeak}G</span>
+            
+            {/* Conditionally show H-axis card */}
+            {configData.hAxisEnabled && (
+              <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(xStats.velocityTopPeak))}`}>
+                <CardContent className="p-4">
+                  <h3 className="text-white mb-2">Horizontal (H)</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="">Acceleration</span>
+                      <span className="text-right text-white">{xStats.accelTopPeak}G</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="">Velocity</span>
+                      <span className="text-right text-white">{xStats.velocityTopPeak} mm/s</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="">Dominant Frequency</span>
+                      <span className="text-right text-white">{xStats.dominantFreq} Hz</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="">Velocity</span>
-                    <span className="text-right text-white">{xStats.velocityTopPeak} mm/s</span>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Conditionally show V-axis card */}
+            {configData.vAxisEnabled && (
+              <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(yStats.velocityTopPeak))}`}>
+                <CardContent className="p-4">
+                  <h3 className="text-white mb-2">Vertical (V)</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="">Acceleration</span>
+                      <span className="text-right text-white">{yStats.accelTopPeak}G</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="">Velocity</span>
+                      <span className="text-right text-white">{yStats.velocityTopPeak} mm/s</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="">Dominant Frequency</span>
+                      <span className="text-right text-white">{yStats.dominantFreq} Hz</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="">Dominant Frequency</span>
-                    <span className="text-right text-white">{xStats.dominantFreq} Hz</span>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Conditionally show A-axis card */}
+            {configData.aAxisEnabled && (
+              <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(zStats.velocityTopPeak))}`}>
+                <CardContent className="p-4">
+                  <h3 className="text-white mb-2">Axial (A)</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="">Acceleration</span>
+                      <span className="text-right text-white">{zStats.accelTopPeak}G</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="">Velocity</span>
+                      <span className="text-right text-white">{zStats.velocityTopPeak} mm/s</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="">Dominant Frequency</span>
+                      <span className="text-right text-white">{zStats.dominantFreq} Hz</span>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(yStats.velocityTopPeak))}`}>
-              <CardContent className="p-4">
-                <h3 className="text-white mb-2">Vertical (V)</h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="">Acceleration</span>
-                    <span className="text-right text-white">{yStats.accelTopPeak}G</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="">Velocity</span>
-                    <span className="text-right text-white">{yStats.velocityTopPeak} mm/s</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="">Dominant Frequency</span>
-                    <span className="text-right text-white">{yStats.dominantFreq} Hz</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(zStats.velocityTopPeak))}`}>
-              <CardContent className="p-4">
-                <h3 className="text-white mb-2">Axial (A)</h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="">Acceleration</span>
-                    <span className="text-right text-white">{zStats.accelTopPeak}G</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="">Velocity</span>
-                    <span className="text-right text-white">{zStats.velocityTopPeak} mm/s</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="">Dominant Frequency</span>
-                    <span className="text-right text-white">{zStats.dominantFreq} Hz</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Vibration Analysis Section */}
@@ -1112,9 +1156,15 @@ export default function SensorDetailPage() {
                     <SelectValue placeholder="Select axis" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="H-axis">H-axis (Horizontal)</SelectItem>
-                    <SelectItem value="V-axis">V-axis (Vertical)</SelectItem>
-                    <SelectItem value="A-axis">A-axis (Axial)</SelectItem>
+                    {configData.hAxisEnabled && (
+                      <SelectItem value="H-axis">H-axis (Horizontal)</SelectItem>
+                    )}
+                    {configData.vAxisEnabled && (
+                      <SelectItem value="V-axis">V-axis (Vertical)</SelectItem>
+                    )}
+                    {configData.aAxisEnabled && (
+                      <SelectItem value="A-axis">A-axis (Axial)</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
 
@@ -1444,52 +1494,50 @@ export default function SensorDetailPage() {
                   </div>
                 </div>
 
-                {configData.machineClass === "other" && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label htmlFor="thresholdMin" className="text-sm font-medium text-gray-300">
-                        Warning Threshold
-                      </Label>
-                      <Input
-                        id="thresholdMin"
-                        type="number"
-                        step="0.1"
-                        value={configData.thresholdMin}
-                        onChange={(e) => handleConfigChange('thresholdMin', e.target.value)}
-                        className="bg-gray-800 border-gray-700 text-white"
-                        placeholder="e.g. 2.5"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="thresholdMedium" className="text-sm font-medium text-gray-300">
-                        Concern Threshold
-                      </Label>
-                      <Input
-                        id="thresholdMedium"
-                        type="number"
-                        step="0.1"
-                        value={configData.thresholdMedium}
-                        onChange={(e) => handleConfigChange('thresholdMedium', e.target.value)}
-                        className="bg-gray-800 border-gray-700 text-white"
-                        placeholder="e.g. 5.0"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="thresholdMax" className="text-sm font-medium text-gray-300">
-                        Damage Threshold
-                      </Label>
-                      <Input
-                        id="thresholdMax"
-                        type="number"
-                        step="0.1"
-                        value={configData.thresholdMax}
-                        onChange={(e) => handleConfigChange('thresholdMax', e.target.value)}
-                        className="bg-gray-800 border-gray-700 text-white"
-                        placeholder="e.g. 10.0"
-                      />
-                    </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="thresholdMin" className="text-sm font-medium text-gray-300">
+                      Warning Threshold
+                    </Label>
+                    <Input
+                      id="thresholdMin"
+                      type="number"
+                      step="0.1"
+                      value={configData.thresholdMin}
+                      onChange={(e) => handleConfigChange('thresholdMin', e.target.value)}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="e.g. 1.0"
+                    />
                   </div>
-                )}
+                  <div>
+                    <Label htmlFor="thresholdMedium" className="text-sm font-medium text-gray-300">
+                      Concern Threshold
+                    </Label>
+                    <Input
+                      id="thresholdMedium"
+                      type="number"
+                      step="0.1"
+                      value={configData.thresholdMedium}
+                      onChange={(e) => handleConfigChange('thresholdMedium', e.target.value)}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="e.g. 2.0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="thresholdMax" className="text-sm font-medium text-gray-300">
+                      Damage Threshold
+                    </Label>
+                    <Input
+                      id="thresholdMax"
+                      type="number"
+                      step="0.1"
+                      value={configData.thresholdMax}
+                      onChange={(e) => handleConfigChange('thresholdMax', e.target.value)}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="e.g. 3.0"
+                    />
+                  </div>
+                </div>
 
                 <div>
                   <Label htmlFor="notes" className="text-sm font-medium text-gray-300">
@@ -1502,6 +1550,51 @@ export default function SensorDetailPage() {
                     className="bg-gray-800 border-gray-700 text-white"
                     placeholder="Additional information"
                   />
+                </div>
+
+                {/* Axis Direction Configuration */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-300">
+                    Axis Directions
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="hAxisEnabled"
+                        checked={configData.hAxisEnabled}
+                        onChange={(e) => handleConfigChange('hAxisEnabled', e.target.checked)}
+                        className="rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label htmlFor="hAxisEnabled" className="text-sm text-gray-300">
+                        H-Axis (Horizontal)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="vAxisEnabled"
+                        checked={configData.vAxisEnabled}
+                        onChange={(e) => handleConfigChange('vAxisEnabled', e.target.checked)}
+                        className="rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label htmlFor="vAxisEnabled" className="text-sm text-gray-300">
+                        V-Axis (Vertical)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="aAxisEnabled"
+                        checked={configData.aAxisEnabled}
+                        onChange={(e) => handleConfigChange('aAxisEnabled', e.target.checked)}
+                        className="rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label htmlFor="aAxisEnabled" className="text-sm text-gray-300">
+                        A-Axis (Axial)
+                      </Label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
