@@ -368,7 +368,7 @@ export default function RegisterSensorForm() {
                       name="thresholdMin"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Threshold Min</FormLabel>
+                          <FormLabel>Warning Threshold</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
@@ -385,7 +385,7 @@ export default function RegisterSensorForm() {
                       name="thresholdMedium"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Threshold Medium</FormLabel>
+                          <FormLabel>Concern Threshold</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
@@ -402,7 +402,7 @@ export default function RegisterSensorForm() {
                       name="thresholdMax"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Threshold Max</FormLabel>
+                          <FormLabel>Damage Threshold</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
