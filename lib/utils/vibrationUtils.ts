@@ -87,19 +87,19 @@ export function getVibrationColor(
   const colorMap = {
     dark: {
       normal: 'bg-green-900',
-      warning: 'bg-yellow-900',
+      warning: 'bg-yellow-600',
       concern: 'bg-orange-900',
       critical: 'bg-red-900'
     },
     light: {
       normal: 'bg-green-500',
-      warning: 'bg-yellow-500',
+      warning: 'bg-yellow-600',
       concern: 'bg-orange-500',
       critical: 'bg-red-500'
     },
     card: {
       normal: 'bg-green-900',
-      warning: 'bg-yellow-900',
+      warning: 'bg-yellow-600',
       concern: 'bg-orange-900',
       critical: 'bg-red-900'
     }
