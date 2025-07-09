@@ -803,6 +803,9 @@ export default function SensorDetailPage() {
           display: true,
           text: vibrationData?.yAxisLabel || "Acceleration (G)",
           color: "#888",
+          min: 0,
+          max: configData.lor / configData.fmax,
+          stepSize: 1 / (configData.fmax * 2.56)
         },
         grid: {
           color: "rgba(255, 255, 255, 0.1)",
