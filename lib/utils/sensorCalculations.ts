@@ -95,7 +95,7 @@ export function calculateFFT(timeData: number[], maxFreq: number = 400): { magni
       magnitude.push((2.56 / n) * abs)
 
       // คำนวณความถี่
-      frequency.push((i * maxFreq) / n)
+      frequency.push((i * (maxFreq / (1600 * 2.56)) ))
     }
 
     return { magnitude, frequency: frequency.map(f => parseFloat(f.toFixed(2))) }
