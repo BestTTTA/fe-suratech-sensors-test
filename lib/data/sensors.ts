@@ -2,6 +2,8 @@ import type { Sensor, SensorFilters, SensorReading, SensorSummary, SensorApiData
 import { generateMockSensors, generateMockReadings } from "./mockData"
 // Add the import for getRegisteredDevices at the top of the file
 import { getRegisteredDevices } from "./register"
+// Import calculation functions for H, V, A data
+import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
 
 // Cache the generated sensors to avoid regenerating on each request
 let mockSensors: Sensor[] | null = null
@@ -32,10 +34,27 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         const battery = apiSensor.last_data.battery || 0
         const rssi = apiSensor.last_data.rssi || 0
         
-        // Generate mock vibration data since it's not in the API response
-        const vibrationX = 0.5 + Math.random() * 0.3
-        const vibrationY = 0.5 + Math.random() * 0.3
-        const vibrationZ = 0.5 + Math.random() * 0.3
+        // Extract H, V, A data from last_32_h if available
+        let hData: number[] = []
+        let vData: number[] = []
+        let aData: number[] = []
+        
+        if (apiSensor.last_data.last_32_h && Array.isArray(apiSensor.last_data.last_32_h)) {
+          // The API returns last_32_h as an array of arrays, where each inner array contains H, V, A data
+          // We need to extract the H, V, A arrays from this structure
+          if (apiSensor.last_data.last_32_h.length >= 2) {
+            // First array is H data, second array is V data, third array (if exists) is A data
+            hData = apiSensor.last_data.last_32_h[0] || []
+            vData = apiSensor.last_data.last_32_h[1] || []
+            aData = apiSensor.last_data.last_32_h[2] || []
+          }
+        }
+        
+        // Generate mock vibration data for readings if no real data available
+        const baseValue = 0.05 + Math.random() * 0.2 // Range: 0.05 to 0.25
+        const vibrationX = baseValue + (Math.random() * 0.1) // Add some variation
+        const vibrationY = baseValue + (Math.random() * 0.1) // Add some variation  
+        const vibrationZ = baseValue + (Math.random() * 0.1) // Add some variation
 
         readings.push({
           timestamp: new Date(apiSensor.last_data.datetime).getTime(),
@@ -44,6 +63,36 @@ async function fetchRealSensors(): Promise<Sensor[]> {
           vibrationY,
           vibrationZ,
         })
+      }
+
+      // Calculate H, V, A statistics using the same logic as sensor detail page
+      const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
+      let hStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
+      let vStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
+      let aStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
+      
+      // Extract H, V, A data from last_32_h if available
+      let hData: number[] = []
+      let vData: number[] = []
+      let aData: number[] = []
+      
+      if (apiSensor.last_data?.last_32_h && Array.isArray(apiSensor.last_data.last_32_h)) {
+        if (apiSensor.last_data.last_32_h.length >= 2) {
+          hData = apiSensor.last_data.last_32_h[0] || []
+          vData = apiSensor.last_data.last_32_h[1] || []
+          aData = apiSensor.last_data.last_32_h[2] || []
+        }
+      }
+      
+      // Calculate statistics for each axis
+      if (hData.length > 0) {
+        hStats = getAxisTopPeakStats(hData, timeInterval)
+      }
+      if (vData.length > 0) {
+        vStats = getAxisTopPeakStats(vData, timeInterval)
+      }
+      if (aData.length > 0) {
+        aStats = getAxisTopPeakStats(aData, timeInterval)
       }
 
       // Determine status based on available data and alarm threshold
@@ -90,7 +139,16 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         vibrationV: "normal", // Will be calculated based on actual data
         vibrationA: "normal", // Will be calculated based on actual data
         // Store raw API data for access by components
-        last_data: apiSensor.last_data,
+        last_data: {
+          ...apiSensor.last_data,
+          h: hData,
+          v: vData,
+          a: aData,
+        },
+        // Store calculated H, V, A statistics
+        h_stats: hStats,
+        v_stats: vStats,
+        a_stats: aStats,
         // New API configuration fields
         fmax: apiSensor.fmax,
         lor: apiSensor.lor,

@@ -64,6 +64,7 @@ export interface SensorApiData {
     temperature: number
     battery: number
     rssi: number
+    last_32_h?: number[][]
   }
 }
 
@@ -95,6 +96,10 @@ export interface Sensor {
   vibrationA: "normal" | "warning" | "critical"
   // Store raw API data
   last_data?: any
+  // Store calculated H, V, A statistics
+  h_stats?: { accelTopPeak: string; velocityTopPeak: string; dominantFreq: string }
+  v_stats?: { accelTopPeak: string; velocityTopPeak: string; dominantFreq: string }
+  a_stats?: { accelTopPeak: string; velocityTopPeak: string; dominantFreq: string }
   // New API configuration fields
   fmax?: number
   lor?: number

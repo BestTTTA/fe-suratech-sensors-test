@@ -12,6 +12,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles"
 import StatusBadge from "./StatusBadge"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
+import { getCardBackgroundColor } from "@/lib/utils/vibrationUtils"
 
 type SortField = "serialNumber" | "machineName" | "status" | "lastUpdated"
 type SortDirection = "asc" | "desc"
@@ -153,7 +154,9 @@ export default function SensorsTable() {
                 </Button>
               </TableHead>
               <TableHead>Temperature</TableHead>
-              <TableHead>Vibration (X, Y, Z)</TableHead>
+              <TableHead>H (Horizontal)</TableHead>
+              <TableHead>V (Vertical)</TableHead>
+              <TableHead>A (Axial)</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -182,17 +185,64 @@ export default function SensorsTable() {
                   </TableCell>
                   <TableCell>{latestReading.temperature.toFixed(1)}°C</TableCell>
                   <TableCell>
-                    <div className="flex space-x-2">
-                      <span className="text-sm">
-                        X: <span className="font-medium">{latestReading.vibrationX.toFixed(2)}</span>
-                      </span>
-                      <span className="text-sm">
-                        Y: <span className="font-medium">{latestReading.vibrationY.toFixed(2)}</span>
-                      </span>
-                      <span className="text-sm">
-                        Z: <span className="font-medium">{latestReading.vibrationZ.toFixed(2)}</span>
-                      </span>
-                    </div>
+                    {sensor.h_stats ? (
+                      <div 
+                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColor(
+                          parseFloat(sensor.h_stats.velocityTopPeak), 
+                          {
+                            thresholdMin: sensor.threshold_min,
+                            thresholdMedium: sensor.threshold_medium,
+                            thresholdMax: sensor.threshold_max,
+                            machineClass: sensor.machine_class || undefined
+                          }
+                        )}`}
+                      >
+                        <div className="font-medium">H: {sensor.h_stats.velocityTopPeak} mm/s</div>
+                        <div className="text-xs opacity-80">{sensor.h_stats.accelTopPeak}G</div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">No data</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {sensor.v_stats ? (
+                      <div 
+                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColor(
+                          parseFloat(sensor.v_stats.velocityTopPeak), 
+                          {
+                            thresholdMin: sensor.threshold_min,
+                            thresholdMedium: sensor.threshold_medium,
+                            thresholdMax: sensor.threshold_max,
+                            machineClass: sensor.machine_class || undefined
+                          }
+                        )}`}
+                      >
+                        <div className="font-medium">V: {sensor.v_stats.velocityTopPeak} mm/s</div>
+                        <div className="text-xs opacity-80">{sensor.v_stats.accelTopPeak}G</div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">No data</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {sensor.a_stats ? (
+                      <div 
+                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColor(
+                          parseFloat(sensor.a_stats.velocityTopPeak), 
+                          {
+                            thresholdMin: sensor.threshold_min,
+                            thresholdMedium: sensor.threshold_medium,
+                            thresholdMax: sensor.threshold_max,
+                            machineClass: sensor.machine_class || undefined
+                          }
+                        )}`}
+                      >
+                        <div className="font-medium">A: {sensor.a_stats.velocityTopPeak} mm/s</div>
+                        <div className="text-xs opacity-80">{sensor.a_stats.accelTopPeak}G</div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">No data</span>
+                    )}
                   </TableCell>
                   <TableCell>{formatDate(sensor.lastUpdated)}</TableCell>
                 </TableRow>

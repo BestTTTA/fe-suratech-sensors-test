@@ -340,6 +340,48 @@ export default function SensorDetailPage() {
     }
   }
 
+  // ฟังก์ชันดึงข้อมูล configuration ของเซ็นเซอร์
+  const fetchSensorConfig = async (sensorId: string) => {
+    try {
+      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/config`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const configData = await response.json()
+      
+      // Update configData state with fetched configuration
+      setConfigData(prev => ({
+        ...prev,
+        sensorName: configData.sensor_name || prev.sensorName,
+        machineNumber: configData.machine_number || prev.machineNumber,
+        installationPoint: configData.installation_point || prev.installationPoint,
+        machineClass: configData.machine_class || prev.machineClass,
+        fmax: configData.fmax || prev.fmax,
+        lor: configData.lor || prev.lor,
+        g_scale: configData.g_scale || prev.g_scale,
+        time_interval: configData.time_interval || prev.time_interval,
+        thresholdMin: configData.threshold_min?.toString() || prev.thresholdMin,
+        thresholdMedium: configData.threshold_medium?.toString() || prev.thresholdMedium,
+        thresholdMax: configData.threshold_max?.toString() || prev.thresholdMax,
+        notes: configData.note || prev.notes,
+        hAxisEnabled: configData.h_axis_enabled !== false, // Default to true if not specified
+        vAxisEnabled: configData.v_axis_enabled !== false, // Default to true if not specified
+        aAxisEnabled: configData.a_axis_enabled !== false  // Default to true if not specified
+      }))
+      
+      return configData
+    } catch (error) {
+      // Error fetching sensor config - this is not critical, so we don't set error state
+      console.log("Failed to fetch sensor config from API, using defaults")
+      return null
+    }
+  }
+
   // ฟังก์ชันดึงข้อมูลพื้นฐานของเซ็นเซอร์
   const fetchSensor = async () => {
     try {
@@ -477,6 +519,7 @@ export default function SensorDetailPage() {
     if (mounted) {
       fetchSensor()
       fetchSensorDatetimes(params.id)
+      fetchSensorConfig(params.id) // Fetch config on mount
     }
   }, [params.id, mounted])
 
@@ -550,10 +593,6 @@ export default function SensorDetailPage() {
           threshold_medium: Number(configData.thresholdMedium) || 0,
           threshold_max: Number(configData.thresholdMax) || 0,
           note: configData.notes || "",
-          // Add axis direction configuration
-          h_axis_enabled: configData.hAxisEnabled,
-          v_axis_enabled: configData.vAxisEnabled,
-          a_axis_enabled: configData.aAxisEnabled
         }),
       })
 
@@ -609,18 +648,18 @@ export default function SensorDetailPage() {
     }))
   }, [])
 
-  // Use utility function for card background color - use sensor's own threshold data
+  // Use utility function for card background color - use configData for threshold values
   const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
-    // Use sensor's own threshold data if available, otherwise fall back to configData
+    // Use configData for threshold values since we fetch complete config from API
     const sensorConfig: SensorConfig = {
-      thresholdMin: sensor?.threshold_min,
-      thresholdMedium: sensor?.threshold_medium,
-      thresholdMax: sensor?.threshold_max,
-      machineClass: sensor?.machine_class
+      thresholdMin: configData.thresholdMin ? Number(configData.thresholdMin) : undefined,
+      thresholdMedium: configData.thresholdMedium ? Number(configData.thresholdMedium) : undefined,
+      thresholdMax: configData.thresholdMax ? Number(configData.thresholdMax) : undefined,
+      machineClass: configData.machineClass || undefined
     }
     
     return getCardBackgroundColor(velocityValue, sensorConfig)
-  }, [sensor])
+  }, [configData])
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
@@ -1530,50 +1569,6 @@ export default function SensorDetailPage() {
                   />
                 </div>
 
-                {/* Axis Direction Configuration */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium text-gray-300">
-                    Axis Directions
-                  </Label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="hAxisEnabled"
-                        checked={configData.hAxisEnabled}
-                        onChange={(e) => handleConfigChange('hAxisEnabled', e.target.checked)}
-                        className="rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                      />
-                      <Label htmlFor="hAxisEnabled" className="text-sm text-gray-300">
-                        H-Axis (Horizontal)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="vAxisEnabled"
-                        checked={configData.vAxisEnabled}
-                        onChange={(e) => handleConfigChange('vAxisEnabled', e.target.checked)}
-                        className="rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                      />
-                      <Label htmlFor="vAxisEnabled" className="text-sm text-gray-300">
-                        V-Axis (Vertical)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="aAxisEnabled"
-                        checked={configData.aAxisEnabled}
-                        onChange={(e) => handleConfigChange('aAxisEnabled', e.target.checked)}
-                        className="rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                      />
-                      <Label htmlFor="aAxisEnabled" className="text-sm text-gray-300">
-                        A-Axis (Axial)
-                      </Label>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="flex justify-end space-x-2 pt-4">

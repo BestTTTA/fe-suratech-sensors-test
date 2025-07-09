@@ -150,12 +150,12 @@ export function getSensorAxisVibrationColor(
 
     // Get the correct data arrays based on axis
     let axisData: number[] = []
-    if (axis === 'h' && sensor.last_data.last_32_h) {
-      axisData = sensor.last_data.last_32_h.flat()
-    } else if (axis === 'v' && sensor.last_data.last_32_v) {
-      axisData = sensor.last_data.last_32_v.flat()
-    } else if (axis === 'a' && sensor.last_data.last_32_a) {
-      axisData = sensor.last_data.last_32_a.flat()
+    if (axis === 'h' && sensor.last_data.h) {
+      axisData = Array.isArray(sensor.last_data.h) ? sensor.last_data.h : []
+    } else if (axis === 'v' && sensor.last_data.v) {
+      axisData = Array.isArray(sensor.last_data.v) ? sensor.last_data.v : []
+    } else if (axis === 'a' && sensor.last_data.a) {
+      axisData = Array.isArray(sensor.last_data.a) ? sensor.last_data.a : []
     }
     
     if (axisData && axisData.length > 0) {
@@ -206,12 +206,27 @@ export function getSensorAxisVibrationLevel(
 
     // Get the correct data arrays based on axis
     let axisData: number[] = []
-    if (axis === 'h' && sensor.last_data.last_32_h) {
-      axisData = sensor.last_data.last_32_h.flat()
-    } else if (axis === 'v' && sensor.last_data.last_32_v) {
-      axisData = sensor.last_data.last_32_v.flat()
-    } else if (axis === 'a' && sensor.last_data.last_32_a) {
-      axisData = sensor.last_data.last_32_a.flat()
+    if (axis === 'h' && sensor.last_data.h) {
+      axisData = Array.isArray(sensor.last_data.h) ? sensor.last_data.h : []
+    } else if (axis === 'v' && sensor.last_data.v) {
+      axisData = Array.isArray(sensor.last_data.v) ? sensor.last_data.v : []
+    } else if (axis === 'a' && sensor.last_data.a) {
+      axisData = Array.isArray(sensor.last_data.a) ? sensor.last_data.a : []
+    }
+    
+    // If no vibration arrays available, try to use readings data (main page)
+    if ((!axisData || axisData.length === 0) && sensor.readings && sensor.readings.length > 0) {
+      const latestReading = sensor.readings[sensor.readings.length - 1]
+      if (latestReading) {
+        // Convert single values to arrays for calculation
+        if (axis === 'h') {
+          axisData = [latestReading.vibrationX]
+        } else if (axis === 'v') {
+          axisData = [latestReading.vibrationY]
+        } else if (axis === 'a') {
+          axisData = [latestReading.vibrationZ]
+        }
+      }
     }
     
     if (axisData && axisData.length > 0) {
@@ -220,9 +235,9 @@ export function getSensorAxisVibrationLevel(
       
       // Use sensor's own threshold configuration if available
       const thresholds: VibrationThresholds = {
-        min: sensor.threshold_min,
-        medium: sensor.threshold_medium,
-        max: sensor.threshold_max
+        min: sensor.threshold_min ? Number(sensor.threshold_min) : undefined,
+        medium: sensor.threshold_medium ? Number(sensor.threshold_medium) : undefined,
+        max: sensor.threshold_max ? Number(sensor.threshold_max) : undefined
       }
       
       return getVibrationLevel(velocityValue, thresholds)

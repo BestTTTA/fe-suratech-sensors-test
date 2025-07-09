@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Battery, Wifi, MoreHorizontal } from "lucide-react"
 import { formatRawTime, getSignalStrength } from "@/lib/utils"
 import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
-import { getSensorAxisVibrationLevel, getVibrationColor } from "@/lib/utils/vibrationUtils"
+import { getSensorAxisVibrationColor } from "@/lib/utils/vibrationUtils"
 import type { Sensor } from "@/lib/types"
 
 interface SensorCardProps {
@@ -52,9 +52,9 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   const timeInterval = sensor?.time_interval || 3
 
   // Calculate velocity-based vibration status for H, V, A axes using utility
-  const displayVibrationH = getSensorAxisVibrationLevel(sensor, 'h')
-  const displayVibrationV = getSensorAxisVibrationLevel(sensor, 'v')
-  const displayVibrationA = getSensorAxisVibrationLevel(sensor, 'a')
+  const displayVibrationH = getSensorAxisVibrationColor(sensor, 'h', 'light')
+  const displayVibrationV = getSensorAxisVibrationColor(sensor, 'v', 'light')
+  const displayVibrationA = getSensorAxisVibrationColor(sensor, 'a', 'light')
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -69,9 +69,7 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
     }
   }
 
-  const getVibrationColorLocal = (level: string) => {
-    return getVibrationColor(level as any, 'light', safeConnectivity === "offline")
-  }
+
 
   const getBatteryColor = () => {
     if (safeBatteryLevel > 50) {
@@ -183,19 +181,19 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
           {axisConfig.hAxisEnabled && (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-black mb-1">H</span>
-              <div className={`w-4 h-8 ${getVibrationColorLocal(displayVibrationH)} rounded-full border border-gray-600`}></div>
+              <div className={`w-4 h-8 ${displayVibrationH} rounded-full border border-gray-600`}></div>
             </div>
           )}
           {axisConfig.vAxisEnabled && (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-black mb-1">V</span>
-              <div className={`w-4 h-8 ${getVibrationColorLocal(displayVibrationV)} rounded-full border border-gray-600`}></div>
+              <div className={`w-4 h-8 ${displayVibrationV} rounded-full border border-gray-600`}></div>
             </div>
           )}
           {axisConfig.aAxisEnabled && (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-black mb-1">A</span>
-              <div className={`w-4 h-8 ${getVibrationColorLocal(displayVibrationA)} rounded-full border border-gray-600`}></div>
+              <div className={`w-4 h-8 ${displayVibrationA} rounded-full border border-gray-600`}></div>
             </div>
           )}
         </div>
