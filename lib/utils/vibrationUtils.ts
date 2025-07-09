@@ -105,7 +105,14 @@ export function getVibrationColor(
     }
   }
 
-  return colorMap[scheme][level] || colorMap[scheme].normal
+  const color = colorMap[scheme][level] || colorMap[scheme].normal
+  
+  // Add !important for card scheme to override default card background
+  if (scheme === 'card') {
+    return color.replace('bg-', '!bg-')
+  }
+  
+  return color
 }
 
 /**

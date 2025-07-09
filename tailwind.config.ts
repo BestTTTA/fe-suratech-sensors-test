@@ -8,6 +8,24 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}"
   ],
+  safelist: [
+    // Vibration level colors - ensure these are preserved in production
+    'bg-green-900',
+    'bg-yellow-600',
+    'bg-orange-900',
+    'bg-red-900',
+    'bg-green-500',
+    'bg-yellow-500',
+    'bg-orange-500',
+    'bg-red-500',
+    'bg-red-600',
+    '!bg-green-900',
+    '!bg-yellow-600',
+    '!bg-orange-900',
+    '!bg-red-900',
+    '!bg-red-600',
+    'bg-gray-400', // for offline status
+  ],
   theme: {
   	extend: {
   		gridTemplateColumns: {
