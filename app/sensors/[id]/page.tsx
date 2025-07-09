@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, MoreVertical, Calendar, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -284,6 +284,9 @@ export default function SensorDetailPage() {
   const router = useRouter()
   const params = useParams() as { id: string }
   
+  // Client-side only state to prevent SSR hydration issues
+  const [mounted, setMounted] = useState(false)
+  
   // สถานะของคอมโพเนนต์
   const [sensor, setSensor] = useState<any>(null)
   const [sensorLastData, setSensorLastData] = useState<SensorLastData | null>(null)
@@ -443,24 +446,69 @@ export default function SensorDetailPage() {
     }
   }
 
+  // Function to fetch sensor configuration data
+  const fetchSensorConfig = async (sensorId: string) => {
+    try {
+      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/config`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
+      if (response.ok) {
+        const configData = await response.json()
+        setConfigData(prev => ({
+          ...prev,
+          sensorName: configData.sensor_name || configData.name || "",
+          machineNumber: configData.machine_number || "",
+          installationPoint: configData.installation_point || "",
+          machineClass: configData.machine_class || "",
+          thresholdMin: configData.threshold_min?.toString() || "",
+          thresholdMedium: configData.threshold_medium?.toString() || "",
+          thresholdMax: configData.threshold_max?.toString() || "",
+          notes: configData.note || ""
+        }))
+      }
+    } catch (error) {
+      // Error fetching sensor config - use default values
+      console.log("Could not fetch sensor configuration, using defaults")
+    }
+  }
+
+  // Set mounted state to prevent SSR hydration issues
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // ฟังก์ชันดึงข้อมูลเมื่อคอมโพเนนต์โหลด
   useEffect(() => {
-    fetchSensor()
-    fetchSensorDatetimes(params.id)
-  }, [params.id])
+    if (mounted) {
+      fetchSensor()
+      fetchSensorDatetimes(params.id)
+      fetchSensorConfig(params.id)
+    }
+  }, [params.id, mounted])
 
   // Update config data when sensorLastData changes
   useEffect(() => {
     if (sensorLastData) {
       setConfigData(prev => ({
         ...prev,
+        sensorName: sensorLastData.name || sensor?.name || "",
+        machineNumber: prev.machineNumber || "", // Keep existing value if available
+        installationPoint: prev.installationPoint || "", // Keep existing value if available
+        machineClass: prev.machineClass || "", // Keep existing value if available
         fmax: sensorLastData.fmax || 10000,
         lor: sensorLastData.lor || 6400,
         g_scale: sensorLastData.g_scale || 16,
-        time_interval: sensorLastData.time_interval || 3
+        time_interval: sensorLastData.time_interval || 3,
+        thresholdMin: prev.thresholdMin || "",
+        thresholdMedium: prev.thresholdMedium || "",
+        thresholdMax: prev.thresholdMax || "",
+        notes: prev.notes || "" // Keep existing value if available
       }))
     }
-  }, [sensorLastData])
+  }, [sensorLastData, sensor])
 
   // Cleanup modal state on component unmount
   useEffect(() => {
@@ -523,6 +571,24 @@ export default function SensorDetailPage() {
       
       // Refresh sensor data to get updated configuration
       await fetchSensorLastData(params.id)
+      await fetchSensorConfig(params.id)
+      
+      // Update the config data immediately with the submitted values
+      setConfigData(prev => ({
+        ...prev,
+        sensorName: configData.sensorName,
+        machineNumber: configData.machineNumber,
+        installationPoint: configData.installationPoint,
+        machineClass: configData.machineClass,
+        fmax: configData.fmax,
+        lor: configData.lor,
+        g_scale: configData.g_scale,
+        time_interval: configData.time_interval,
+        thresholdMin: configData.thresholdMin,
+        thresholdMedium: configData.thresholdMedium,
+        thresholdMax: configData.thresholdMax,
+        notes: configData.notes
+      }))
       
       // Close modal after a short delay to show success message
       setTimeout(() => {
@@ -539,12 +605,12 @@ export default function SensorDetailPage() {
     }
   }
 
-  const handleConfigChange = (field: string, value: string | number) => {
+  const handleConfigChange = useCallback((field: string, value: string | number) => {
     setConfigData(prev => ({
       ...prev,
       [field]: value
     }))
-  }
+  }, [])
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
@@ -575,7 +641,7 @@ export default function SensorDetailPage() {
   }, [sensorLastData])
 
   // ฟังก์ชันเตรียมข้อมูลสำหรับกราฟ
-  function prepareVibrationData(): {
+  const prepareVibrationData = useCallback((): {
     hasData: boolean;
     timeData: any | null;
     freqData: any | null;
@@ -584,7 +650,7 @@ export default function SensorDetailPage() {
     peakValue?: string;
     peakToPeakValue?: string;
     topPeaks?: { peak: number; rms: string; frequency: string }[];
-  } {
+  } => {
     // ตรวจสอบว่ามีข้อมูลการสั่นสะเทือนจริงหรือไม่
     if (
       !sensorLastData?.data ||
@@ -618,35 +684,16 @@ export default function SensorDetailPage() {
       hasData: true,
       ...chartData,
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    )
-  }
-
-  if (!sensor) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center bg-black text-white">
-        <h2 className="text-2xl font-bold">Sensor not found</h2>
-        <Button variant="outline" className="mt-4" onClick={() => router.push("/")}>
-          Back to Sensors
-        </Button>
-      </div>
-    )
-  }
+  }, [sensorLastData?.data, selectedAxis, selectedUnit])
 
   // Use real data if available, otherwise use sensor data or fallback
   const currentData = sensorLastData?.data || {
-    temperature: sensor.temperature || 0,
-    h: [sensor.vibrationX || 0],
-    v: [sensor.vibrationY || 0],
-    a: [sensor.vibrationZ || 0],
-    battery: sensor.battery || 0,
-    datetime: sensor.lastUpdated,
+    temperature: sensor?.temperature || 0,
+    h: [sensor?.vibrationX || 0],
+    v: [sensor?.vibrationY || 0],
+    a: [sensor?.vibrationZ || 0],
+    battery: sensor?.battery || 0,
+    datetime: sensor?.lastUpdated || new Date().toISOString(),
     rssi: 0,
     flag: "",
   }
@@ -655,15 +702,29 @@ export default function SensorDetailPage() {
   const safeTemp = Number(currentData.temperature) || 0
   const safeBattery = Number(currentData.battery) || 0
 
-  const vibrationData = prepareVibrationData()
+  const vibrationData = useMemo(() => {
+    if (loading || !sensorLastData) return { hasData: false, timeData: null, freqData: null };
+    return prepareVibrationData();
+  }, [prepareVibrationData, loading, sensorLastData])
 
-      // Prepare stats for each axis
-    const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
-  const xStats = getAxisTopPeakStats(sensorLastData?.data?.h || [], timeInterval);
-  const yStats = getAxisTopPeakStats(sensorLastData?.data?.v || [], timeInterval);
-  const zStats = getAxisTopPeakStats(sensorLastData?.data?.a || [], timeInterval);
+  // Prepare stats for each axis
+  const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
+  const xStats = useMemo(() => {
+    if (loading || !sensorLastData?.data?.h) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
+    return getAxisTopPeakStats(sensorLastData.data.h, timeInterval);
+  }, [sensorLastData?.data?.h, timeInterval, loading]);
+  
+  const yStats = useMemo(() => {
+    if (loading || !sensorLastData?.data?.v) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
+    return getAxisTopPeakStats(sensorLastData.data.v, timeInterval);
+  }, [sensorLastData?.data?.v, timeInterval, loading]);
+  
+  const zStats = useMemo(() => {
+    if (loading || !sensorLastData?.data?.a) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
+    return getAxisTopPeakStats(sensorLastData.data.a, timeInterval);
+  }, [sensorLastData?.data?.a, timeInterval, loading]);
 
-  const timeChartOptions = {
+  const timeChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     scales: {
@@ -699,9 +760,9 @@ export default function SensorDetailPage() {
         display: false,
       },
     },
-  }
+  }), [vibrationData?.yAxisLabel])
 
-  const freqChartOptions = {
+  const freqChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     scales: {
@@ -737,6 +798,26 @@ export default function SensorDetailPage() {
         display: false,
       },
     },
+  }), [vibrationData?.yAxisLabel])
+
+  // Early returns after all hooks
+  if (!mounted || loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    )
+  }
+
+  if (!sensor) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-black text-white">
+        <h2 className="text-2xl font-bold">Sensor not found</h2>
+        <Button variant="outline" className="mt-4" onClick={() => router.push("/")}>
+          Back to Sensors
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -849,27 +930,53 @@ export default function SensorDetailPage() {
 
               <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold mb-2">Sensor Information</h2>
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-lg font-semibold">Sensor Information</h2>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-transparent border-gray-700 hover:bg-gray-800"
+                      onClick={() => setConfigModalOpen(true)}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      Edit
+                    </Button>
+                  </div>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Serial Number</span>
                       <span>{sensor.serialNumber || "S-JBK7"}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Type</span>
-                      <span>{sensorLastData?.sensor_type || "Vibration Sensor"}</span>
+                      <span className="text-gray-400">Sensor Name</span>
+                      <span>{configData.sensorName || sensor.name || "Unnamed Sensor"}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Unit</span>
-                      <span>{sensorLastData?.unit || "G"}</span>
+                      <span className="text-gray-400">Machine Number</span>
+                      <span className={configData.machineNumber ? "text-white" : "text-gray-500"}>
+                        {configData.machineNumber || "Not Set"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Machine</span>
-                      <span>{sensor.machine || "Test Machine"}</span>
+                      <span className="text-gray-400">Installation Point</span>
+                      <span className={configData.installationPoint ? "text-white" : "text-gray-500"}>
+                        {configData.installationPoint || "Not Set"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Location</span>
-                      <span>{sensor.location || "Test Location"}</span>
+                      <span className="text-gray-400">Machine Class</span>
+                      <span className={configData.machineClass ? "text-white" : "text-gray-500"}>
+                        {configData.machineClass ? configData.machineClass.charAt(0).toUpperCase() + configData.machineClass.slice(1) : "Not Set"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Note</span>
+                      <span 
+                        className={`max-w-[200px] truncate ${configData.notes ? "text-white" : "text-gray-500"}`}
+                        title={configData.notes || "No notes"}
+                      >
+                        {configData.notes || "No notes"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1090,55 +1197,59 @@ export default function SensorDetailPage() {
                       </div>
                     </div>
 
-                    <div className="mt-6">
-                      <h3 className="text-lg font-medium mb-4">Time domain</h3>
-                      <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
-                        {vibrationData.timeData && (
-                          <Line
-                            data={vibrationData.timeData}
-                            options={{
-                              ...timeChartOptions,
-                              scales: {
-                                ...timeChartOptions.scales,
-                                y: {
-                                  ...timeChartOptions.scales.y,
-                                  title: {
-                                    ...timeChartOptions.scales.y.title,
-                                    text: vibrationData.yAxisLabel || "Acceleration (G)",
+                    {!configModalOpen && (
+                      <>
+                        <div className="mt-6">
+                          <h3 className="text-lg font-medium mb-4">Time domain</h3>
+                          <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
+                            {vibrationData.timeData && (
+                              <Line
+                                data={vibrationData.timeData}
+                                options={{
+                                  ...timeChartOptions,
+                                  scales: {
+                                    ...timeChartOptions.scales,
+                                    y: {
+                                      ...timeChartOptions.scales.y,
+                                      title: {
+                                        ...timeChartOptions.scales.y.title,
+                                        text: vibrationData.yAxisLabel || "Acceleration (G)",
+                                      },
+                                    },
                                   },
-                                },
-                              },
-                            }}
-                          />
-                        )}
-                      </div>
-                    </div>
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
 
-                    <div className="mt-6">
-                      <h3 className="text-lg font-medium mb-4">Frequency domain</h3>
-                      <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
-                        {vibrationData.freqData && (
-                          <Line
-                            data={vibrationData.freqData}
-                            options={{
-                              ...freqChartOptions,
-                              scales: {
-                                ...freqChartOptions.scales,
-                                y: {
-                                  ...freqChartOptions.scales.y,
-                                  title: {
-                                    ...freqChartOptions.scales.y.title,
-                                    text: vibrationData.yAxisLabel
-                                      ? `${vibrationData.yAxisLabel} Magnitude`
-                                      : "Magnitude",
+                        <div className="mt-6">
+                          <h3 className="text-lg font-medium mb-4">Frequency domain</h3>
+                          <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
+                            {vibrationData.freqData && (
+                              <Line
+                                data={vibrationData.freqData}
+                                options={{
+                                  ...freqChartOptions,
+                                  scales: {
+                                    ...freqChartOptions.scales,
+                                    y: {
+                                      ...freqChartOptions.scales.y,
+                                      title: {
+                                        ...freqChartOptions.scales.y.title,
+                                        text: vibrationData.yAxisLabel
+                                          ? `${vibrationData.yAxisLabel} Magnitude`
+                                          : "Magnitude",
+                                      },
+                                    },
                                   },
-                                },
-                              },
-                            }}
-                          />
-                        )}
-                      </div>
-                    </div>
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </>
                 )
               })()}
@@ -1162,7 +1273,7 @@ export default function SensorDetailPage() {
           />
           
           {/* Modal Content */}
-          <div className="relative bg-gray-900 border border-gray-800 text-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="relative bg-gray-900 border border-gray-800 text-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Configure Sensor</h2>
               <button
