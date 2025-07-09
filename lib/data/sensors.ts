@@ -34,20 +34,20 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         const battery = apiSensor.last_data.battery || 0
         const rssi = apiSensor.last_data.rssi || 0
         
-        // Extract H, V, A data from last_32_h if available
+        // Extract H, V, A data from separate arrays
         let hData: number[] = []
         let vData: number[] = []
         let aData: number[] = []
         
+        // Use the correct separate arrays from API
         if (apiSensor.last_data.last_32_h && Array.isArray(apiSensor.last_data.last_32_h)) {
-          // The API returns last_32_h as an array of arrays, where each inner array contains H, V, A data
-          // We need to extract the H, V, A arrays from this structure
-          if (apiSensor.last_data.last_32_h.length >= 2) {
-            // First array is H data, second array is V data, third array (if exists) is A data
-            hData = apiSensor.last_data.last_32_h[0] || []
-            vData = apiSensor.last_data.last_32_h[1] || []
-            aData = apiSensor.last_data.last_32_h[2] || []
-          }
+          hData = apiSensor.last_data.last_32_h[0]
+        }
+        if (apiSensor.last_data.last_32_v && Array.isArray(apiSensor.last_data.last_32_v)) {
+          vData = apiSensor.last_data.last_32_v[0]
+        }
+        if (apiSensor.last_data.last_32_a && Array.isArray(apiSensor.last_data.last_32_a)) {
+          aData = apiSensor.last_data.last_32_a[0]
         }
         
         // Generate mock vibration data for readings if no real data available
@@ -71,19 +71,22 @@ async function fetchRealSensors(): Promise<Sensor[]> {
       let vStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
       let aStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
       
-      // Extract H, V, A data from last_32_h if available
+      // Extract H, V, A data from separate arrays
       let hData: number[] = []
       let vData: number[] = []
       let aData: number[] = []
       
+      // Use the correct separate arrays from API
       if (apiSensor.last_data?.last_32_h && Array.isArray(apiSensor.last_data.last_32_h)) {
-        if (apiSensor.last_data.last_32_h.length >= 2) {
-          hData = apiSensor.last_data.last_32_h[0] || []
-          vData = apiSensor.last_data.last_32_h[1] || []
-          aData = apiSensor.last_data.last_32_h[2] || []
-        }
+        hData = apiSensor.last_data.last_32_h[0]
       }
-      
+      if (apiSensor.last_data?.last_32_v && Array.isArray(apiSensor.last_data.last_32_v)) {
+        vData = apiSensor.last_data.last_32_v[0]
+      }
+      if (apiSensor.last_data?.last_32_a && Array.isArray(apiSensor.last_data.last_32_a)) {
+        aData = apiSensor.last_data.last_32_a[0]
+      }
+
       // Calculate statistics for each axis
       if (hData.length > 0) {
         hStats = getAxisTopPeakStats(hData, timeInterval)

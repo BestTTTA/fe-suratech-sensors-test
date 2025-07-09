@@ -65,6 +65,8 @@ export interface SensorApiData {
     battery: number
     rssi: number
     last_32_h?: number[][]
+    last_32_v?: number[][]
+    last_32_a?: number[][]
   }
 }
 

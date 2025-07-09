@@ -71,6 +71,8 @@ export default function SensorGrid({ onRefresh }: SensorGridProps) {
           limit: sensorsPerPage,
         })
 
+        // console.log("fetchedSensors", fetchedSensors)
+
         setSensors(fetchedSensors)
         setTotalPages(Math.ceil(total / sensorsPerPage))
         hasInitiallyLoaded.current = true

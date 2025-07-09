@@ -1,12 +1,9 @@
 "use client"
-
-import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Battery, Wifi, MoreHorizontal } from "lucide-react"
 import { formatRawTime, getSignalStrength } from "@/lib/utils"
-import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
 import { getSensorAxisVibrationColor } from "@/lib/utils/vibrationUtils"
 import type { Sensor } from "@/lib/types"
 
@@ -27,9 +24,6 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   const safeModel = sensor?.model || "Unknown Model"
   const safeName = sensor?.name || "Unknown Sensor"
   const safeStatus = sensor?.operationalStatus || "standby"
-  const safeVibrationH = sensor?.vibrationH || "normal"
-  const safeVibrationV = sensor?.vibrationV || "normal"
-  const safeVibrationA = sensor?.vibrationA || "normal"
   const safeBatteryLevel = sensor?.batteryLevel || 0
   const safeConnectivity = sensor?.connectivity || "offline"
   const safeLastUpdated = sensor?.lastUpdated || Date.now()

@@ -10,7 +10,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { formatRawTime } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { getSensorById } from "@/lib/data/sensors"
 import { formatDate, getSignalStrength, getSignalStrengthLabel } from "@/lib/utils"
 import { Line } from "react-chartjs-2"
 import {
@@ -385,14 +384,9 @@ export default function SensorDetailPage() {
   // ฟังก์ชันดึงข้อมูลพื้นฐานของเซ็นเซอร์
   const fetchSensor = async () => {
     try {
-      // ดึงข้อมูลพื้นฐานของเซ็นเซอร์
-      const data = await getSensorById(params.id)
       // ดึงข้อมูลล่าสุดจากเซ็นเซอร์
       const lastData = await fetchSensorLastData(params.id)
-
-      if (data) {
-        setSensor(data)
-      } else if (lastData) {
+      if (lastData) {
         // สร้างข้อมูลเซ็นเซอร์จาก API ถ้าไม่พบในฐานข้อมูล
         const hData = lastData.data.h || []
         const vData = lastData.data.v || []
@@ -772,6 +766,13 @@ export default function SensorDetailPage() {
     if (loading || !sensorLastData?.data?.a) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
     return getAxisTopPeakStats(sensorLastData.data.a, timeInterval);
   }, [sensorLastData?.data?.a, timeInterval, loading]);
+
+  // Summary log for all axes when data changes
+  useEffect(() => {
+    if (sensorLastData?.name && !loading) {
+      // console.log(`[SENSOR DETAIL ${sensorLastData.name}] PEAK VELOCITIES - H: ${xStats.velocityTopPeak} mm/s | V: ${yStats.velocityTopPeak} mm/s | A: ${zStats.velocityTopPeak} mm/s`);
+    }
+  }, [xStats.velocityTopPeak, yStats.velocityTopPeak, zStats.velocityTopPeak, sensorLastData?.name, loading]);
 
   const timeChartOptions = useMemo(() => ({
     responsive: true,

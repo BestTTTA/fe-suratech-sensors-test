@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles"
 import StatusBadge from "./StatusBadge"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
-import { getCardBackgroundColor } from "@/lib/utils/vibrationUtils"
+import { getCardBackgroundColor, type SensorConfig } from "@/lib/utils/vibrationUtils"
 
 type SortField = "serialNumber" | "machineName" | "status" | "lastUpdated"
 type SortDirection = "asc" | "desc"
@@ -58,6 +58,19 @@ export default function SensorsTable() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const router = useRouter()
   const sensorsPerPage = 50 // Increased from 20 to 50
+
+  // Use utility function for card background color - use sensor threshold values from main API
+  const getCardBackgroundColorCallback = useCallback((velocityValue: number, sensor: Sensor) => {
+    // Use sensor threshold values from the main API
+    const sensorConfig: SensorConfig = {
+      thresholdMin: sensor.threshold_min,
+      thresholdMedium: sensor.threshold_medium,
+      thresholdMax: sensor.threshold_max,
+      machineClass: sensor.machine_class || undefined
+    }
+    
+    return getCardBackgroundColor(velocityValue, sensorConfig)
+  }, [])
 
   useEffect(() => {
     const fetchSensors = async () => {
@@ -187,14 +200,9 @@ export default function SensorsTable() {
                   <TableCell>
                     {sensor.h_stats ? (
                       <div 
-                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColor(
+                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColorCallback(
                           parseFloat(sensor.h_stats.velocityTopPeak), 
-                          {
-                            thresholdMin: sensor.threshold_min,
-                            thresholdMedium: sensor.threshold_medium,
-                            thresholdMax: sensor.threshold_max,
-                            machineClass: sensor.machine_class || undefined
-                          }
+                          sensor
                         )}`}
                       >
                         <div className="font-medium">H: {sensor.h_stats.velocityTopPeak} mm/s</div>
@@ -207,14 +215,9 @@ export default function SensorsTable() {
                   <TableCell>
                     {sensor.v_stats ? (
                       <div 
-                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColor(
+                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColorCallback(
                           parseFloat(sensor.v_stats.velocityTopPeak), 
-                          {
-                            thresholdMin: sensor.threshold_min,
-                            thresholdMedium: sensor.threshold_medium,
-                            thresholdMax: sensor.threshold_max,
-                            machineClass: sensor.machine_class || undefined
-                          }
+                          sensor
                         )}`}
                       >
                         <div className="font-medium">V: {sensor.v_stats.velocityTopPeak} mm/s</div>
@@ -227,14 +230,9 @@ export default function SensorsTable() {
                   <TableCell>
                     {sensor.a_stats ? (
                       <div 
-                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColor(
+                        className={`p-2 rounded text-xs text-white ${getCardBackgroundColorCallback(
                           parseFloat(sensor.a_stats.velocityTopPeak), 
-                          {
-                            thresholdMin: sensor.threshold_min,
-                            thresholdMedium: sensor.threshold_medium,
-                            thresholdMax: sensor.threshold_max,
-                            machineClass: sensor.machine_class || undefined
-                          }
+                          sensor
                         )}`}
                       >
                         <div className="font-medium">A: {sensor.a_stats.velocityTopPeak} mm/s</div>
