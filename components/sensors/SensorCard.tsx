@@ -16,39 +16,12 @@ interface SensorCardProps {
 }
 
 export default function SensorCard({ sensor, onClick }: SensorCardProps) {
-  // Add state for axis configuration
-  const [axisConfig, setAxisConfig] = useState({
+  // Always show all axes for main page (no config API call needed)
+  const axisConfig = {
     hAxisEnabled: true,
     vAxisEnabled: true,
     aAxisEnabled: true
-  })
-
-  // Fetch sensor configuration on component mount
-  useEffect(() => {
-    const fetchSensorConfig = async () => {
-      try {
-        const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensor.id}/config`, {
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        })
-        if (response.ok) {
-          const configData = await response.json()
-          setAxisConfig({
-            hAxisEnabled: configData.h_axis_enabled !== false, // Default to true if not specified
-            vAxisEnabled: configData.v_axis_enabled !== false, // Default to true if not specified
-            aAxisEnabled: configData.a_axis_enabled !== false  // Default to true if not specified
-          })
-        }
-      } catch (error) {
-        // Error fetching sensor config - use default values (all enabled)
-        console.log("Could not fetch sensor configuration, using defaults")
-      }
-    }
-
-    fetchSensorConfig()
-  }, [sensor.id])
+  }
 
   // Safely access sensor properties with fallbacks
   const safeModel = sensor?.model || "Unknown Model"

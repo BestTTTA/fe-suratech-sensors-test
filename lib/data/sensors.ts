@@ -97,6 +97,11 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         g_scale: apiSensor.g_scale,
         alarm_ths: apiSensor.alarm_ths,
         time_interval: apiSensor.time_interval,
+        // Threshold configuration fields from API
+        threshold_min: apiSensor.threshold_min,
+        threshold_medium: apiSensor.threshold_medium,
+        threshold_max: apiSensor.threshold_max,
+        machine_class: apiSensor.machine_class,
       }
 
       return sensor

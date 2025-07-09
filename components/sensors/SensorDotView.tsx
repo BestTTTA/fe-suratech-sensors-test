@@ -60,8 +60,8 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
   const sensorsPerPage = 200 // More sensors per page for dot view
   const hasInitiallyLoaded = useRef(false)
 
-  // Add state for axis configuration
-  const [axisConfigs, setAxisConfigs] = useState<Record<string, { hAxisEnabled: boolean; vAxisEnabled: boolean; aAxisEnabled: boolean }>>({})
+  // Always show all axes for main page (no config API call needed)
+  const axisConfigs: Record<string, { hAxisEnabled: boolean; vAxisEnabled: boolean; aAxisEnabled: boolean }> = {}
 
   const fetchSensors = useCallback(
     async (isManualRefresh = false) => {
@@ -78,48 +78,6 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
         setSensors(fetchedSensors)
         setTotalPages(Math.ceil(total / sensorsPerPage))
         hasInitiallyLoaded.current = true
-
-        // Fetch axis configurations for all sensors
-        const configPromises = fetchedSensors.map(async (sensor) => {
-          try {
-            const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensor.id}/config`, {
-              cache: "no-store",
-              headers: {
-                "Cache-Control": "no-cache",
-              },
-            })
-            if (response.ok) {
-              const configData = await response.json()
-              return {
-                sensorId: sensor.id,
-                config: {
-                  hAxisEnabled: configData.h_axis_enabled !== false,
-                  vAxisEnabled: configData.v_axis_enabled !== false,
-                  aAxisEnabled: configData.a_axis_enabled !== false
-                }
-              }
-            }
-          } catch (error) {
-            // Use default values if config fetch fails
-            return {
-              sensorId: sensor.id,
-              config: {
-                hAxisEnabled: true,
-                vAxisEnabled: true,
-                aAxisEnabled: true
-              }
-            }
-          }
-        })
-
-        const configResults = await Promise.all(configPromises)
-        const newAxisConfigs: Record<string, { hAxisEnabled: boolean; vAxisEnabled: boolean; aAxisEnabled: boolean }> = {}
-        configResults.forEach(result => {
-          if (result) {
-            newAxisConfigs[result.sensorId] = result.config
-          }
-        })
-        setAxisConfigs(newAxisConfigs)
 
         if (onRefresh) {
           onRefresh()
@@ -201,7 +159,7 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-2">
           {sensors.map((sensor) => {
             const currentTemp = sensor.last_data?.temperature || 0
-            const axisConfig = axisConfigs[sensor.id] || { hAxisEnabled: true, vAxisEnabled: true, aAxisEnabled: true }
+                          const axisConfig = { hAxisEnabled: true, vAxisEnabled: true, aAxisEnabled: true }
             
             return (
               <Tooltip key={sensor.id}>

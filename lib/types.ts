@@ -55,6 +55,10 @@ export interface SensorApiData {
   created_at: string
   updated_at: string
   machine_id: string | null
+  machine_class?: string | null
+  threshold_min?: number
+  threshold_medium?: number
+  threshold_max?: number
   last_data: {
     datetime: string
     temperature: number
@@ -97,6 +101,11 @@ export interface Sensor {
   g_scale?: number
   alarm_ths?: number
   time_interval?: number
+  // Threshold configuration fields
+  threshold_min?: number
+  threshold_medium?: number
+  threshold_max?: number
+  machine_class?: string | null
 }
 
 export interface Machine {

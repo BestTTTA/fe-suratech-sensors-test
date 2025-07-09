@@ -35,7 +35,7 @@ import {
   calculateVibrationStats,
   SENSOR_CONSTANTS
 } from "@/lib/utils/sensorCalculations"
-import { getCardBackgroundColor } from "@/lib/utils/vibrationUtils"
+import { getCardBackgroundColor, type SensorConfig } from "@/lib/utils/vibrationUtils"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -442,36 +442,28 @@ export default function SensorDetailPage() {
     }
   }
 
-  // Function to fetch sensor configuration data
-  const fetchSensorConfig = async (sensorId: string) => {
-    try {
-      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/config`, {
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      })
-      if (response.ok) {
-        const configData = await response.json()
-        setConfigData(prev => ({
-          ...prev,
-          sensorName: configData.sensor_name || configData.name || "",
-          machineNumber: configData.machine_number || "",
-          installationPoint: configData.installation_point || "",
-          machineClass: configData.machine_class || "",
-          thresholdMin: configData.threshold_min?.toString() || "",
-          thresholdMedium: configData.threshold_medium?.toString() || "",
-          thresholdMax: configData.threshold_max?.toString() || "",
-          notes: configData.note || "",
-          // Add axis direction configuration with defaults
-          hAxisEnabled: configData.h_axis_enabled !== false, // Default to true if not specified
-          vAxisEnabled: configData.v_axis_enabled !== false, // Default to true if not specified
-          aAxisEnabled: configData.a_axis_enabled !== false  // Default to true if not specified
-        }))
-      }
-    } catch (error) {
-      // Error fetching sensor config - use default values
-      console.log("Could not fetch sensor configuration, using defaults")
+  // Function to initialize config data from sensor data (no API call needed)
+  const initializeConfigData = () => {
+    if (sensor) {
+      setConfigData(prev => ({
+        ...prev,
+        sensorName: sensor.name || "",
+        machineNumber: prev.machineNumber || "",
+        installationPoint: prev.installationPoint || "",
+        machineClass: sensor.machine_class || "",
+        fmax: sensor.fmax || 10000,
+        lor: sensor.lor || 6400,
+        g_scale: sensor.g_scale || 16,
+        time_interval: sensor.time_interval || 3,
+        thresholdMin: sensor.threshold_min?.toString() || "",
+        thresholdMedium: sensor.threshold_medium?.toString() || "",
+        thresholdMax: sensor.threshold_max?.toString() || "",
+        notes: prev.notes || "",
+        // Default axis configuration (can be updated via config modal)
+        hAxisEnabled: prev.hAxisEnabled !== false, // Default to true
+        vAxisEnabled: prev.vAxisEnabled !== false, // Default to true
+        aAxisEnabled: prev.aAxisEnabled !== false  // Default to true
+      }))
     }
   }
 
@@ -485,7 +477,6 @@ export default function SensorDetailPage() {
     if (mounted) {
       fetchSensor()
       fetchSensorDatetimes(params.id)
-      fetchSensorConfig(params.id)
     }
   }, [params.id, mounted])
 
@@ -575,7 +566,6 @@ export default function SensorDetailPage() {
       
       // Refresh sensor data to get updated configuration
       await fetchSensorLastData(params.id)
-      await fetchSensorConfig(params.id)
       
       // Update the config data immediately with the submitted values
       setConfigData(prev => ({
@@ -619,10 +609,18 @@ export default function SensorDetailPage() {
     }))
   }, [])
 
-  // Use utility function for card background color
+  // Use utility function for card background color - use sensor's own threshold data
   const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
-    return getCardBackgroundColor(velocityValue, configData)
-  }, [configData])
+    // Use sensor's own threshold data if available, otherwise fall back to configData
+    const sensorConfig: SensorConfig = {
+      thresholdMin: sensor?.threshold_min,
+      thresholdMedium: sensor?.threshold_medium,
+      thresholdMax: sensor?.threshold_max,
+      machineClass: sensor?.machine_class
+    }
+    
+    return getCardBackgroundColor(velocityValue, sensorConfig)
+  }, [sensor])
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {

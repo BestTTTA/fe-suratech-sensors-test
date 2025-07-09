@@ -162,7 +162,15 @@ export function getSensorAxisVibrationColor(
       const stats = getAxisTopPeakStats(axisData, timeInterval)
       const velocityValue = parseFloat(stats.velocityTopPeak)
       
-      return getVibrationColorFromVelocity(velocityValue, undefined, scheme, false)
+      // Use sensor's own threshold configuration if available
+      const sensorConfig: SensorConfig = {
+        thresholdMin: sensor.threshold_min,
+        thresholdMedium: sensor.threshold_medium,
+        thresholdMax: sensor.threshold_max,
+        machineClass: sensor.machine_class || undefined
+      }
+      
+      return getVibrationColorFromVelocity(velocityValue, sensorConfig, scheme, false)
     }
   }
   
@@ -210,7 +218,14 @@ export function getSensorAxisVibrationLevel(
       const stats = getAxisTopPeakStats(axisData, timeInterval)
       const velocityValue = parseFloat(stats.velocityTopPeak)
       
-      return getVibrationLevel(velocityValue)
+      // Use sensor's own threshold configuration if available
+      const thresholds: VibrationThresholds = {
+        min: sensor.threshold_min,
+        medium: sensor.threshold_medium,
+        max: sensor.threshold_max
+      }
+      
+      return getVibrationLevel(velocityValue, thresholds)
     }
   }
   
@@ -257,38 +272,38 @@ export function getDefaultThresholds(): VibrationThresholds {
 /*
 USAGE EXAMPLES:
 
-1. For sensor detail page with API config:
+1. For sensor detail page (uses sensor's own threshold data):
 ```typescript
 import { getCardBackgroundColor } from '@/lib/utils/vibrationUtils'
 
-// In your component
+// In your component - sensor already has threshold data from API
 const cardColor = getCardBackgroundColor(velocityValue, {
-  thresholdMin: "0.5",
-  thresholdMedium: "1.0", 
-  thresholdMax: "2.0"
+  thresholdMin: sensor.threshold_min,
+  thresholdMedium: sensor.threshold_medium,
+  thresholdMax: sensor.threshold_max
 })
 ```
 
-2. For list/dot views:
+2. For list/dot views (automatically uses sensor's threshold data):
 ```typescript
 import { getSensorAxisVibrationColor } from '@/lib/utils/vibrationUtils'
 
-// In your component
+// In your component - no need to pass config, uses sensor's own data
 const hAxisColor = getSensorAxisVibrationColor(sensor, 'h', 'light')
 const vAxisColor = getSensorAxisVibrationColor(sensor, 'v', 'light')
 const aAxisColor = getSensorAxisVibrationColor(sensor, 'a', 'light')
 ```
 
-3. For card view with vibration levels:
+3. For card view with vibration levels (automatically uses sensor's threshold data):
 ```typescript
 import { getSensorAxisVibrationLevel, getVibrationColor } from '@/lib/utils/vibrationUtils'
 
-// In your component
+// In your component - no need to pass config, uses sensor's own data
 const hLevel = getSensorAxisVibrationLevel(sensor, 'h')
 const hColor = getVibrationColor(hLevel, 'light', sensor.connectivity === 'offline')
 ```
 
-4. For custom thresholds:
+4. For custom thresholds (when you want to override sensor's thresholds):
 ```typescript
 import { getVibrationLevel, getVibrationColor } from '@/lib/utils/vibrationUtils'
 
@@ -301,11 +316,35 @@ const level = getVibrationLevel(velocityValue, {
 const color = getVibrationColor(level, 'dark')
 ```
 
-5. For direct velocity to color:
+5. For direct velocity to color with custom config:
 ```typescript
 import { getVibrationColorFromVelocity } from '@/lib/utils/vibrationUtils'
 
 // In your component
 const color = getVibrationColorFromVelocity(velocityValue, config, 'light', isOffline)
 ```
+
+6. For sensor detail page with sensor's own data:
+```typescript
+import { getCardBackgroundColor } from '@/lib/utils/vibrationUtils'
+
+// In your component - uses sensor's threshold data automatically
+const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
+  const sensorConfig = {
+    thresholdMin: sensor?.threshold_min,
+    thresholdMedium: sensor?.threshold_medium,
+    thresholdMax: sensor?.threshold_max,
+    machineClass: sensor?.machine_class
+  }
+  return getCardBackgroundColor(velocityValue, sensorConfig)
+}, [sensor])
+```
+
+NOTE: The sensor data from /sensors/with-last-data already includes:
+- threshold_min
+- threshold_medium  
+- threshold_max
+- machine_class
+
+So no separate API call is needed for vibration color calculations!
 */ 
