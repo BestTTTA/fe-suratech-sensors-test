@@ -69,7 +69,8 @@ interface SensorLastData {
 function prepareChartData(
   rawAxisData: number[],
   selectedUnit: string,
-  timeInterval: number
+  timeInterval: number,
+  configData: any
 ): {
   timeData: any;
   freqData: any;
@@ -130,14 +131,14 @@ function prepareChartData(
   let yAxisLabel: string
 
   if (selectedUnit === "Acceleration (G)") {
-    processedData = rawAxisData.map((adc) => adcToAccelerationG(adc))
+    processedData = rawAxisData.map((adc) => adcToAccelerationG(adc, configData.g_scale))
     yAxisLabel = "G"
   } else if (selectedUnit === "Acceleration (mm/s²)") {
-    processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
+    processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc, configData.g_scale)))
     yAxisLabel = "mm/s²"
     
   } else {
-    const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc)))
+    const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc, configData.g_scale)))
     processedData = accelerationToVelocity(accelerations, timeInterval)
     yAxisLabel = "mm/s"
   }
@@ -307,6 +308,7 @@ export default function SensorDetailPage() {
     lor: 6400,
     g_scale: 16,
     time_interval: 3,
+    alarm_ths: 5.0,
     thresholdMin: "",
     thresholdMedium: "",
     thresholdMax: "",
@@ -364,6 +366,7 @@ export default function SensorDetailPage() {
         lor: configData.lor || prev.lor,
         g_scale: configData.g_scale || prev.g_scale,
         time_interval: configData.time_interval || prev.time_interval,
+        alarm_ths: configData.alarm_ths || prev.alarm_ths,
         thresholdMin: configData.threshold_min?.toString() || prev.thresholdMin,
         thresholdMedium: configData.threshold_medium?.toString() || prev.thresholdMedium,
         thresholdMax: configData.threshold_max?.toString() || prev.thresholdMax,
@@ -491,6 +494,7 @@ export default function SensorDetailPage() {
         lor: sensor.lor || 6400,
         g_scale: sensor.g_scale || 16,
         time_interval: sensor.time_interval || 3,
+        alarm_ths: sensor.alarm_ths || 5.0,
         thresholdMin: sensor.threshold_min?.toString() || "",
         thresholdMedium: sensor.threshold_medium?.toString() || "",
         thresholdMax: sensor.threshold_max?.toString() || "",
@@ -530,6 +534,7 @@ export default function SensorDetailPage() {
         lor: sensorLastData.lor || 6400,
         g_scale: sensorLastData.g_scale || 16,
         time_interval: sensorLastData.time_interval || 3,
+        alarm_ths: sensorLastData.alarm_ths || 5.0,
         thresholdMin: prev.thresholdMin || "",
         thresholdMedium: prev.thresholdMedium || "",
         thresholdMax: prev.thresholdMax || "",
@@ -583,6 +588,7 @@ export default function SensorDetailPage() {
           lor: configData.lor,
           g_scale: configData.g_scale,
           time_interval: configData.time_interval,
+          alarm_ths: Number(configData.alarm_ths) || 5.0,
           threshold_min: Number(configData.thresholdMin) || 0,
           threshold_medium: Number(configData.thresholdMedium) || 0,
           threshold_max: Number(configData.thresholdMax) || 0,
@@ -611,6 +617,7 @@ export default function SensorDetailPage() {
         lor: configData.lor,
         g_scale: configData.g_scale,
         time_interval: configData.time_interval,
+        alarm_ths: configData.alarm_ths,
         thresholdMin: configData.thresholdMin,
         thresholdMedium: configData.thresholdMedium,
         thresholdMax: configData.thresholdMax,
@@ -721,13 +728,13 @@ export default function SensorDetailPage() {
     const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
 
     // เตรียมข้อมูลสำหรับกราฟ
-    const chartData = prepareChartData(rawAxisData, selectedUnit, timeInterval)
+    const chartData = prepareChartData(rawAxisData, selectedUnit, timeInterval, configData)
 
     return {
       hasData: true,
       ...chartData,
     }
-  }, [sensorLastData?.data, selectedAxis, selectedUnit])
+  }, [sensorLastData?.data, selectedAxis, selectedUnit, configData])
 
   // Use real data if available, otherwise use sensor data or fallback
   const currentData = sensorLastData?.data || {
@@ -754,18 +761,18 @@ export default function SensorDetailPage() {
   const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
   const xStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.h) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.h, timeInterval);
-  }, [sensorLastData?.data?.h, timeInterval, loading]);
+    return getAxisTopPeakStats(sensorLastData.data.h, timeInterval, configData.g_scale);
+  }, [sensorLastData?.data?.h, timeInterval, loading, configData.g_scale]);
   
   const yStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.v) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.v, timeInterval);
-  }, [sensorLastData?.data?.v, timeInterval, loading]);
+    return getAxisTopPeakStats(sensorLastData.data.v, timeInterval, configData.g_scale);
+  }, [sensorLastData?.data?.v, timeInterval, loading, configData.g_scale]);
   
   const zStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.a) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.a, timeInterval);
-  }, [sensorLastData?.data?.a, timeInterval, loading]);
+    return getAxisTopPeakStats(sensorLastData.data.a, timeInterval, configData.g_scale);
+  }, [sensorLastData?.data?.a, timeInterval, loading, configData.g_scale]);
 
   // Summary log for all axes when data changes
   useEffect(() => {
@@ -1555,6 +1562,21 @@ export default function SensorDetailPage() {
                       placeholder="e.g. 3.0"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="alarm_ths" className="text-sm font-medium text-gray-300">
+                    Alarm Threshold (Hours)
+                  </Label>
+                  <Input
+                    id="alarm_ths"
+                    type="number"
+                    step="0.1"
+                    value={configData.alarm_ths}
+                    onChange={(e) => handleConfigChange('alarm_ths', Number(e.target.value))}
+                    className="bg-gray-800 border-gray-700 text-white"
+                    placeholder="e.g. 5.0"
+                  />
                 </div>
 
                 <div>

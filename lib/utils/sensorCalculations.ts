@@ -48,6 +48,15 @@ export function accelerationToVelocity(accelerations: number[], timeInterval: nu
   return velocities
 }
 
+export function handlingWithTrashHole(data: number[], ): number[] {
+  const trashHole = 0.15
+  const trashHoleIndex = data.findIndex(value => value > trashHole)
+  if (trashHoleIndex !== -1) {
+    return data.slice(trashHoleIndex)
+  }
+  return data // Return original data if no value exceeds threshold
+}
+
 // อัตราการสุ่มตัวอย่างข้อมูล (Hz)
 const SAMPLING_RATE = 25600
 const MAX_FREQ = SAMPLING_RATE / 2.56
@@ -101,7 +110,7 @@ export function calculateFFT(timeData: number[]): { magnitude: number[]; frequen
 }
 
 // Function to get top peak values for each axis
-export function getAxisTopPeakStats(axisData: number[], timeInterval: number) {
+export function getAxisTopPeakStats(axisData: number[], timeInterval: number, g_scale: number = 16) {
   // Check if we have valid data
   if (!axisData || axisData.length === 0) {
     return {
@@ -112,8 +121,8 @@ export function getAxisTopPeakStats(axisData: number[], timeInterval: number) {
   }
 
   try {
-    // Convert ADC to acceleration (G)
-    const processedData = axisData.map(adc => adcToAccelerationG(adc));
+    // Convert ADC to acceleration (G) using the provided g_scale
+    const processedData = axisData.map(adc => adcToAccelerationG(adc, g_scale));
     
     // Calculate velocity from acceleration
     const accelerations = processedData.map(adc => accelerationGToMmPerSecSquared(adc));
