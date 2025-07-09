@@ -57,13 +57,9 @@ export function handlingWithTrashHole(data: number[], ): number[] {
   return data // Return original data if no value exceeds threshold
 }
 
-// อัตราการสุ่มตัวอย่างข้อมูล (Hz)
-const SAMPLING_RATE = 25600
-const MAX_FREQ = SAMPLING_RATE / 2.56
-
 // คำนวณ FFT (Fast Fourier Transform) เพื่อวิเคราะห์ความถี่
 // FFT คือการแปลงสัญญาณจากโดเมนเวลาเป็นโดเมนความถี่
-export function calculateFFT(timeData: number[]): { magnitude: number[]; frequency: number[] } {
+export function calculateFFT(timeData: number[], maxFreq: number = 400): { magnitude: number[]; frequency: number[] } {
   // ปรับความยาวข้อมูลให้เป็นกำลังของ 2 (จำเป็นสำหรับ FFT)
   const nextPow2 = Math.pow(2, Math.ceil(Math.log2(timeData.length)))
 
@@ -99,7 +95,7 @@ export function calculateFFT(timeData: number[]): { magnitude: number[]; frequen
       magnitude.push((2.56 / n) * abs)
 
       // คำนวณความถี่
-      frequency.push((i * MAX_FREQ) / n)
+      frequency.push((i * maxFreq) / n)
     }
 
     return { magnitude, frequency: frequency.map(f => parseFloat(f.toFixed(2))) }
@@ -110,7 +106,7 @@ export function calculateFFT(timeData: number[]): { magnitude: number[]; frequen
 }
 
 // Function to get top peak values for each axis
-export function getAxisTopPeakStats(axisData: number[], timeInterval: number, g_scale: number = 16) {
+export function getAxisTopPeakStats(axisData: number[], timeInterval: number, g_scale: number = 16, maxFreq: number = 400) {
   // Check if we have valid data
   if (!axisData || axisData.length === 0) {
     return {
@@ -129,8 +125,8 @@ export function getAxisTopPeakStats(axisData: number[], timeInterval: number, g_
     const velocity = accelerationToVelocity(accelerations, timeInterval);
 
     // Calculate FFT for both acceleration and velocity
-    const { magnitude: accelMagnitude, frequency: accelFrequency } = calculateFFT(processedData);
-    const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity);
+    const { magnitude: accelMagnitude, frequency: accelFrequency } = calculateFFT(processedData, maxFreq);
+    const { magnitude: velocityMagnitude, frequency: velocityFrequency } = calculateFFT(velocity, maxFreq);
 
     // Check if we have valid magnitude data
     if (!accelMagnitude || accelMagnitude.length === 0 || !velocityMagnitude || velocityMagnitude.length === 0) {

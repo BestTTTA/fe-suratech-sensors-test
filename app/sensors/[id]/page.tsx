@@ -175,7 +175,7 @@ function prepareChartData(
   }
 
   // คำนวณ FFT สำหรับโดเมนความถี่
-  const { magnitude, frequency } = calculateFFT(processedData)
+  const { magnitude, frequency } = calculateFFT(processedData, configData.fmax)
 
   // Check if FFT calculation was successful
   if (!magnitude || magnitude.length === 0 || !frequency || frequency.length === 0) {
@@ -761,17 +761,17 @@ export default function SensorDetailPage() {
   const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
   const xStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.h) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.h, timeInterval, configData.g_scale);
+    return getAxisTopPeakStats(sensorLastData.data.h, timeInterval, configData.g_scale, configData.fmax);
   }, [sensorLastData?.data?.h, timeInterval, loading, configData.g_scale]);
   
   const yStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.v) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.v, timeInterval, configData.g_scale);
+    return getAxisTopPeakStats(sensorLastData.data.v, timeInterval, configData.g_scale, configData.fmax);
   }, [sensorLastData?.data?.v, timeInterval, loading, configData.g_scale]);
   
   const zStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.a) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.a, timeInterval, configData.g_scale);
+    return getAxisTopPeakStats(sensorLastData.data.a, timeInterval, configData.g_scale, configData.fmax);
   }, [sensorLastData?.data?.a, timeInterval, loading, configData.g_scale]);
 
   // Summary log for all axes when data changes

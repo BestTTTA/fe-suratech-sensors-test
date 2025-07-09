@@ -134,7 +134,9 @@ export function getVibrationColorFromVelocity(
 export function getSensorAxisVibrationColor(
   sensor: Sensor,
   axis: 'h' | 'v' | 'a',
-  scheme: ColorScheme = 'light'
+  scheme: ColorScheme = 'light',
+  g_scale: number = 16,
+  fmax: number = 400
 ): string {
   // If sensor is offline, return gray color
   if (sensor.connectivity === "offline") {
@@ -156,7 +158,7 @@ export function getSensorAxisVibrationColor(
     }
     
     if (axisData && axisData.length > 0) {
-      const stats = getAxisTopPeakStats(axisData, timeInterval)
+      const stats = getAxisTopPeakStats(axisData, timeInterval, g_scale, fmax)
       const velocityValue = parseFloat(stats.velocityTopPeak)
       
       // Use sensor's own threshold configuration if available

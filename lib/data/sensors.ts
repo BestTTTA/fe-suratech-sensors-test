@@ -89,13 +89,13 @@ async function fetchRealSensors(): Promise<Sensor[]> {
 
       // Calculate statistics for each axis
       if (hData.length > 0) {
-        hStats = getAxisTopPeakStats(hData, timeInterval)
+        hStats = getAxisTopPeakStats(hData, timeInterval, apiSensor.g_scale, apiSensor.fmax)
       }
       if (vData.length > 0) {
-        vStats = getAxisTopPeakStats(vData, timeInterval)
+        vStats = getAxisTopPeakStats(vData, timeInterval, apiSensor.g_scale, apiSensor.fmax)
       }
       if (aData.length > 0) {
-        aStats = getAxisTopPeakStats(aData, timeInterval)
+        aStats = getAxisTopPeakStats(aData, timeInterval, apiSensor.g_scale, apiSensor.fmax)
       }
 
       // Determine status based on available data and alarm threshold

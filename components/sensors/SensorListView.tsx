@@ -7,7 +7,6 @@ import { Pagination } from "@mui/material"
 import { createTheme, ThemeProvider } from "@mui/material/styles"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
-import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
 import { getSensorAxisVibrationColor } from "@/lib/utils/vibrationUtils"
 
 // Create a custom MUI theme for the pagination component
