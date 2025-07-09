@@ -8,6 +8,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles"
 import { getSensors } from "@/lib/data/sensors"
 import type { Sensor } from "@/lib/types"
 import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
+import { getSensorAxisVibrationColor } from "@/lib/utils/vibrationUtils"
 
 // Create a custom MUI theme for the pagination component
 const paginationTheme = createTheme({
@@ -177,62 +178,7 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
   }
 
   const getVibrationColor = (sensor: Sensor, axis: 'h' | 'v' | 'a') => {
-    // If sensor is offline, return gray color
-    if (sensor.connectivity === "offline") {
-      return "bg-gray-400"
-    }
-    
-    // Calculate velocity-based vibration status using real data
-    if (sensor.connectivity === "online" && sensor.last_data) {
-      const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
-
-      // Get the correct data arrays based on axis
-      let axisData: number[] = []
-      if (axis === 'h' && sensor.last_data.last_32_h) {
-        axisData = sensor.last_data.last_32_h.flat()
-      } else if (axis === 'v' && sensor.last_data.last_32_v) {
-        axisData = sensor.last_data.last_32_v.flat()
-      } else if (axis === 'a' && sensor.last_data.last_32_a) {
-        axisData = sensor.last_data.last_32_a.flat()
-      }
-      
-      if (axisData && axisData.length > 0) {
-        const stats = getAxisTopPeakStats(axisData, timeInterval)
-        const velocityValue = parseFloat(stats.velocityTopPeak)
-        
-        // For list view, we don't have individual sensor thresholds, so use constants
-        // In a real implementation, you would fetch sensor-specific thresholds
-        const minThreshold = SENSOR_CONSTANTS.MIN_TRASH_HOLE
-        const mediumThreshold = (minThreshold + SENSOR_CONSTANTS.MAX_TRASH_HOLE) / 2
-        const maxThreshold = SENSOR_CONSTANTS.MAX_TRASH_HOLE
-        
-        if (velocityValue < minThreshold) {
-          return "bg-green-500"
-        } else if (velocityValue >= minThreshold && velocityValue < mediumThreshold) {
-          return "bg-yellow-500"
-        } else if (velocityValue >= mediumThreshold && velocityValue < maxThreshold) {
-          return "bg-orange-500"
-        } else {
-          return "bg-red-500"
-        }
-      }
-    }
-    
-    // Fallback to sensor's stored vibration level
-    const level = axis === 'h' ? sensor.vibrationH : 
-                 axis === 'v' ? sensor.vibrationV : 
-                 sensor.vibrationA
-    
-    switch (level) {
-      case "normal":
-        return "bg-green-500"
-      case "warning":
-        return "bg-yellow-500"
-      case "critical":
-        return "bg-red-500"
-      default:
-        return "bg-green-500"
-    }
+    return getSensorAxisVibrationColor(sensor, axis, 'light')
   }
 
   const getTemperatureColor = (temp: number) => {

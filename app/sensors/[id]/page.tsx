@@ -35,6 +35,7 @@ import {
   calculateVibrationStats,
   SENSOR_CONSTANTS
 } from "@/lib/utils/sensorCalculations"
+import { getCardBackgroundColor } from "@/lib/utils/vibrationUtils"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -618,31 +619,10 @@ export default function SensorDetailPage() {
     }))
   }, [])
 
-  // Function to determine card background color based on velocity value and API configuration
-  const getCardBackgroundColor = useCallback((velocityValue: number) => {
-    // Use API configuration thresholds if available, otherwise fall back to constants
-    const minThreshold = configData.thresholdMin 
-      ? Number(configData.thresholdMin) 
-      : SENSOR_CONSTANTS.MIN_TRASH_HOLE
-    
-    const mediumThreshold = configData.thresholdMedium 
-      ? Number(configData.thresholdMedium) 
-      : (minThreshold + (SENSOR_CONSTANTS.MAX_TRASH_HOLE - SENSOR_CONSTANTS.MIN_TRASH_HOLE) / 2)
-    
-    const maxThreshold = configData.thresholdMax 
-      ? Number(configData.thresholdMax) 
-      : SENSOR_CONSTANTS.MAX_TRASH_HOLE
-    
-    if (velocityValue < minThreshold) {
-      return "bg-green-900" // Normal - Green
-    } else if (velocityValue >= minThreshold && velocityValue < mediumThreshold) {
-      return "bg-yellow-900" // Warning - Yellow
-    } else if (velocityValue >= mediumThreshold && velocityValue < maxThreshold) {
-      return "bg-orange-900" // Concern - Orange
-    } else {
-      return "bg-red-900"   // Critical - Red
-    }
-  }, [configData.thresholdMin, configData.thresholdMedium, configData.thresholdMax])
+  // Use utility function for card background color
+  const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
+    return getCardBackgroundColor(velocityValue, configData)
+  }, [configData])
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
@@ -1077,7 +1057,7 @@ export default function SensorDetailPage() {
             
             {/* Conditionally show H-axis card */}
             {configData.hAxisEnabled && (
-              <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(xStats.velocityTopPeak))}`}>
+              <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(xStats.velocityTopPeak))}`}>
                 <CardContent className="p-4">
                   <h3 className="text-white mb-2">Horizontal (H)</h3>
                   <div className="space-y-1 text-sm">
@@ -1100,7 +1080,7 @@ export default function SensorDetailPage() {
             
             {/* Conditionally show V-axis card */}
             {configData.vAxisEnabled && (
-              <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(yStats.velocityTopPeak))}`}>
+              <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(yStats.velocityTopPeak))}`}>
                 <CardContent className="p-4">
                   <h3 className="text-white mb-2">Vertical (V)</h3>
                   <div className="space-y-1 text-sm">
@@ -1123,7 +1103,7 @@ export default function SensorDetailPage() {
             
             {/* Conditionally show A-axis card */}
             {configData.aAxisEnabled && (
-              <Card className={`border-gray-800 ${getCardBackgroundColor(parseFloat(zStats.velocityTopPeak))}`}>
+              <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(zStats.velocityTopPeak))}`}>
                 <CardContent className="p-4">
                   <h3 className="text-white mb-2">Axial (A)</h3>
                   <div className="space-y-1 text-sm">

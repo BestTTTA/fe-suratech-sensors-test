@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Battery, Wifi, MoreHorizontal } from "lucide-react"
 import { formatRawTime, getSignalStrength } from "@/lib/utils"
 import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalculations"
+import { getSensorAxisVibrationLevel, getVibrationColor } from "@/lib/utils/vibrationUtils"
 import type { Sensor } from "@/lib/types"
 
 interface SensorCardProps {
@@ -77,48 +78,10 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   const fmax = sensor?.fmax || 10000
   const timeInterval = sensor?.time_interval || 3
 
-  // Calculate velocity-based vibration status for H, V, A axes
-  let displayVibrationH = "normal"
-  let displayVibrationV = "normal"
-  let displayVibrationA = "normal"
-  
-  if (safeConnectivity === "online" && sensor.last_data) {
-    const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
-
-    // merge array of arrays into one array
-    const concat_last_32_h = sensor.last_data.last_32_h.flat()
-    const concat_last_32_v = sensor.last_data.last_32_v.flat()
-    const concat_last_32_a = sensor.last_data.last_32_a.flat()
-    
-    // Calculate velocity stats for each axis
-    const hStats = getAxisTopPeakStats(concat_last_32_h || [], timeInterval)
-    const vStats = getAxisTopPeakStats(concat_last_32_v || [], timeInterval)
-    const aStats = getAxisTopPeakStats(concat_last_32_a || [], timeInterval)
-
-    
-    // Determine vibration level based on velocity values
-    // For now, use constants since we don't have individual sensor thresholds in the card view
-    // In a real implementation, you would fetch sensor-specific thresholds
-    const getVelocityLevel = (velocityValue: number) => {
-      const minThreshold = SENSOR_CONSTANTS.MIN_TRASH_HOLE
-      const mediumThreshold = (minThreshold + SENSOR_CONSTANTS.MAX_TRASH_HOLE) / 2
-      const maxThreshold = SENSOR_CONSTANTS.MAX_TRASH_HOLE
-      
-      if (velocityValue < minThreshold) {
-        return "normal"
-      } else if (velocityValue >= minThreshold && velocityValue < mediumThreshold) {
-        return "warning"
-      } else if (velocityValue >= mediumThreshold && velocityValue < maxThreshold) {
-        return "concern"
-      } else {
-        return "critical"
-      }
-    }
-    
-    displayVibrationH = getVelocityLevel(parseFloat(hStats.velocityTopPeak))
-    displayVibrationV = getVelocityLevel(parseFloat(vStats.velocityTopPeak))
-    displayVibrationA = getVelocityLevel(parseFloat(aStats.velocityTopPeak))
-  }
+  // Calculate velocity-based vibration status for H, V, A axes using utility
+  const displayVibrationH = getSensorAxisVibrationLevel(sensor, 'h')
+  const displayVibrationV = getSensorAxisVibrationLevel(sensor, 'v')
+  const displayVibrationA = getSensorAxisVibrationLevel(sensor, 'a')
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -133,24 +96,8 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
     }
   }
 
-  const getVibrationColor = (level: string) => {
-    // If sensor is offline, return gray color
-    if (safeConnectivity === "offline") {
-      return "bg-gray-400"
-    }
-    
-    switch (level) {
-      case "normal":
-        return "bg-green-500"
-      case "warning":
-        return "bg-yellow-500"
-      case "concern":
-        return "bg-orange-500"
-      case "critical":
-        return "bg-red-500"
-      default:
-        return "bg-green-500"
-    }
+  const getVibrationColorLocal = (level: string) => {
+    return getVibrationColor(level as any, 'light', safeConnectivity === "offline")
   }
 
   const getBatteryColor = () => {
@@ -263,19 +210,19 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
           {axisConfig.hAxisEnabled && (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-black mb-1">H</span>
-              <div className={`w-4 h-8 ${getVibrationColor(displayVibrationH)} rounded-full border border-gray-600`}></div>
+              <div className={`w-4 h-8 ${getVibrationColorLocal(displayVibrationH)} rounded-full border border-gray-600`}></div>
             </div>
           )}
           {axisConfig.vAxisEnabled && (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-black mb-1">V</span>
-              <div className={`w-4 h-8 ${getVibrationColor(displayVibrationV)} rounded-full border border-gray-600`}></div>
+              <div className={`w-4 h-8 ${getVibrationColorLocal(displayVibrationV)} rounded-full border border-gray-600`}></div>
             </div>
           )}
           {axisConfig.aAxisEnabled && (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-black mb-1">A</span>
-              <div className={`w-4 h-8 ${getVibrationColor(displayVibrationA)} rounded-full border border-gray-600`}></div>
+              <div className={`w-4 h-8 ${getVibrationColorLocal(displayVibrationA)} rounded-full border border-gray-600`}></div>
             </div>
           )}
         </div>
