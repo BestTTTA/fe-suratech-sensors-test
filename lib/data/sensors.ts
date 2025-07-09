@@ -65,12 +65,6 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         })
       }
 
-      // Calculate H, V, A statistics using the same logic as sensor detail page
-      const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
-      let hStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
-      let vStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
-      let aStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
-      
       // Extract H, V, A data from separate arrays
       let hData: number[] = []
       let vData: number[] = []
@@ -86,6 +80,15 @@ async function fetchRealSensors(): Promise<Sensor[]> {
       if (apiSensor.last_data?.last_32_a && Array.isArray(apiSensor.last_data.last_32_a)) {
         aData = apiSensor.last_data.last_32_a[0]
       }
+
+      // Calculate H, V, A statistics using the same logic as sensor detail page
+      const lor = apiSensor.lor || 6400; // Use API value or default
+      const fmax = apiSensor.fmax || 400; // Use API value or default
+      const totalTime = lor / fmax;
+      const timeInterval = totalTime / (hData.length > 0 ? hData.length - 1 : 1);
+      let hStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
+      let vStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
+      let aStats = { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" }
 
       // Calculate statistics for each axis
       if (hData.length > 0) {

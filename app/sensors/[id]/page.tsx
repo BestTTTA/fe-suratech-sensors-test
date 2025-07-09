@@ -124,7 +124,8 @@ function prepareChartData(
 
   // สร้างป้ายเวลาสำหรับกราฟ
   const n = rawAxisData.length
-  const timeLabels = Array.from({ length: n }, (_, i) => (i * timeInterval).toFixed(2))
+  const totalTime = configData.lor / configData.fmax
+  const timeLabels = Array.from({ length: n }, (_, i) => (i * totalTime / (n - 1)).toFixed(4))
 
   // ประมวลผลข้อมูลตามหน่วยที่เลือก
   let processedData: number[]
@@ -139,7 +140,9 @@ function prepareChartData(
     
   } else {
     const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc, configData.g_scale)))
-    processedData = accelerationToVelocity(accelerations, timeInterval)
+    // Use the actual time interval between samples for velocity calculation
+    const actualTimeInterval = totalTime / (n - 1)
+    processedData = accelerationToVelocity(accelerations, actualTimeInterval)
     yAxisLabel = "mm/s"
   }
 
@@ -724,8 +727,9 @@ export default function SensorDetailPage() {
           ? sensorLastData.data.v
           : sensorLastData.data.a
 
-    // คำนวณช่วงเวลาตามอัตราการสุ่มตัวอย่าง
-    const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
+    // คำนวณช่วงเวลาตาม LOR และ fmax
+    const totalTime = configData.lor / configData.fmax;
+    const timeInterval = totalTime / (rawAxisData.length - 1);
 
     // เตรียมข้อมูลสำหรับกราฟ
     const chartData = prepareChartData(rawAxisData, selectedUnit, timeInterval, configData)
@@ -758,7 +762,8 @@ export default function SensorDetailPage() {
   }, [prepareVibrationData, loading, sensorLastData])
 
   // Prepare stats for each axis
-  const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE;
+  const totalTime = configData.lor / configData.fmax;
+  const timeInterval = totalTime / (sensorLastData?.data?.h?.length ? sensorLastData.data.h.length - 1 : 1);
   const xStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.h) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
     return getAxisTopPeakStats(sensorLastData.data.h, timeInterval, configData.g_scale, configData.fmax);

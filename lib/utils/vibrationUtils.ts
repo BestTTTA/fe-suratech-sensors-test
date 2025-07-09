@@ -145,8 +145,6 @@ export function getSensorAxisVibrationColor(
   
   // Calculate velocity-based vibration status using real data
   if (sensor.connectivity === "online" && sensor.last_data) {
-    const timeInterval = 1 / SENSOR_CONSTANTS.SAMPLING_RATE
-
     // Get the correct data arrays based on axis
     let axisData: number[] = []
     if (axis === 'h' && sensor.last_data.h) {
@@ -158,6 +156,12 @@ export function getSensorAxisVibrationColor(
     }
     
     if (axisData && axisData.length > 0) {
+      // Calculate time interval based on LOR and fmax from sensor configuration
+      const lor = sensor.lor || 6400; // Use sensor's LOR value or default
+      const fmax = sensor.fmax || 400; // Use sensor's fmax value or default
+      const totalTime = lor / fmax;
+      const timeInterval = totalTime / (axisData.length - 1);
+    
       const stats = getAxisTopPeakStats(axisData, timeInterval, g_scale, fmax)
       const velocityValue = parseFloat(stats.velocityTopPeak)
       
