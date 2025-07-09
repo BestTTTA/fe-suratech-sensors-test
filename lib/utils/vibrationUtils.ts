@@ -31,9 +31,11 @@ export function getVibrationLevel(
   velocityValue: number, 
   thresholds?: VibrationThresholds
 ): VibrationLevel {
-  const minThreshold = thresholds?.min ?? SENSOR_CONSTANTS.MIN_TRASH_HOLE
-  const mediumThreshold = thresholds?.medium ?? (minThreshold + (SENSOR_CONSTANTS.MAX_TRASH_HOLE - SENSOR_CONSTANTS.MIN_TRASH_HOLE) / 2)
-  const maxThreshold = thresholds?.max ?? SENSOR_CONSTANTS.MAX_TRASH_HOLE
+  const minThreshold = thresholds?.min ?? 1
+  const mediumThreshold = thresholds?.medium ?? 2
+  const maxThreshold = thresholds?.max ?? 3
+
+ 
 
   if (velocityValue < minThreshold) {
     return 'normal'
@@ -221,8 +223,8 @@ export function getCardBackgroundColor(
  */
 export function getDefaultThresholds(): VibrationThresholds {
   return {
-    min: SENSOR_CONSTANTS.MIN_TRASH_HOLE,
-    medium: (SENSOR_CONSTANTS.MIN_TRASH_HOLE + SENSOR_CONSTANTS.MAX_TRASH_HOLE) / 2,
-    max: SENSOR_CONSTANTS.MAX_TRASH_HOLE
+    min: 0.1,
+    medium: 0.125,
+    max: 0.15
   }
 }

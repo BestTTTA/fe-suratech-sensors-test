@@ -652,15 +652,17 @@ export default function SensorDetailPage() {
     }))
   }, [])
 
-  // Use utility function for card background color - use configData for threshold values
+  // Use utility function for card background color - use configData for threveold values
   const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
     // Use configData for threshold values since we fetch complete config from API
+    
     const sensorConfig: SensorConfig = {
       thresholdMin: configData.thresholdMin ? Number(configData.thresholdMin) : undefined,
       thresholdMedium: configData.thresholdMedium ? Number(configData.thresholdMedium) : undefined,
       thresholdMax: configData.thresholdMax ? Number(configData.thresholdMax) : undefined,
       machineClass: configData.machineClass || undefined
     }
+
     
     return getCardBackgroundColor(velocityValue, sensorConfig)
   }, [configData])
