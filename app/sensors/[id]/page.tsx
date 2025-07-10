@@ -319,6 +319,7 @@ export default function SensorDetailPage() {
   const [configError, setConfigError] = useState<string | null>(null)
   const [configSuccess, setConfigSuccess] = useState<string | null>(null)
   const [configData, setConfigData] = useState({
+    serialNumber: "",
     sensorName: "",
     machineNumber: "",
     installationPoint: "",
@@ -377,6 +378,7 @@ export default function SensorDetailPage() {
       // Update configData state with fetched configuration
       setConfigData(prev => ({
         ...prev,
+        serialNumber: configData.serial_number || prev.serialNumber,
         sensorName: configData.sensor_name || prev.sensorName,
         machineNumber: configData.machine_number || prev.machineNumber,
         installationPoint: configData.installation_point || prev.installationPoint,
@@ -1049,7 +1051,7 @@ export default function SensorDetailPage() {
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Serial Number</span>
-                      <span>{sensor.serialNumber || "S-JBK7"}</span>
+                      <span>{configData.serialNumber || "S-JBK7"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Sensor Name</span>
