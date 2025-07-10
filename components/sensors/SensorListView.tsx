@@ -55,7 +55,7 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const sensorsPerPage = 50
+  const sensorsPerPage = 51
   const hasInitiallyLoaded = useRef(false)
 
   // Always show all axes for main page (no config API call needed)
