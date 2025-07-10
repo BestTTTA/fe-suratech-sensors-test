@@ -59,6 +59,9 @@ const formSchema = z.object({
   lor: z.string({ required_error: "Please select LOR" }),
   gScale: z.string({ required_error: "Please select G-scale" }),
   timeInterval: z.string().min(1, { message: "Please enter time interval" }),
+  alarmThreshold: z
+    .string()
+    .min(1, { message: "Please enter alarm threshold" }),
   thresholdMin: z.string().optional(),
   thresholdMedium: z.string().optional(),
   thresholdMax: z.string().optional(),
@@ -84,6 +87,7 @@ export default function RegisterSensorForm() {
       lor: "",
       gScale: "",
       timeInterval: "",
+      alarmThreshold: "",
       thresholdMin: "",
       thresholdMedium: "",
       thresholdMax: "",
@@ -126,6 +130,7 @@ export default function RegisterSensorForm() {
         g_scale: Number(values.gScale),
         lor: Number(values.lor),
         time_interval: Number(values.timeInterval),
+        alarm_ths: Number(values.alarmThreshold),
         threshold_min: values.machineClass === "other" ? Number(values.thresholdMin) || 0 : 0,
         threshold_medium: values.machineClass === "other" ? Number(values.thresholdMedium) || 0 : 0,
         threshold_max: values.machineClass === "other" ? Number(values.thresholdMax) || 0 : 0,
@@ -318,6 +323,27 @@ export default function RegisterSensorForm() {
                       <FormControl>
                         <Input placeholder="e.g. 24" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="alarmThreshold"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alarm Threshold (G)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1"
+                          placeholder="e.g. 5.0" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Set the acceleration threshold in G units for alarm triggering
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
