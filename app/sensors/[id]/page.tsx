@@ -32,7 +32,8 @@ import {
   getAxisTopPeakStats,
   getAxisStats,
   calculateVibrationStats,
-  SENSOR_CONSTANTS
+  SENSOR_CONSTANTS,
+  handlingWindowFunction
 } from "@/lib/utils/sensorCalculations"
 import { getCardBackgroundColor, type SensorConfig } from "@/lib/utils/vibrationUtils"
 
@@ -130,19 +131,19 @@ function prepareChartData(
   // ประมวลผลข้อมูลตามหน่วยที่เลือก
   let processedData: number[]
   let yAxisLabel: string
+  const gData = rawAxisData.map((adc) => adcToAccelerationG(adc, configData.g_scale))
+  const mmPerSecSquaredData = gData.map((g) => accelerationGToMmPerSecSquared(g))
+  const actualTimeInterval = totalTime / (n - 1)
+  const velocityData = accelerationToVelocity(mmPerSecSquaredData, actualTimeInterval)
 
   if (selectedUnit === "Acceleration (G)") {
-    processedData = rawAxisData.map((adc) => adcToAccelerationG(adc, configData.g_scale))
+    processedData = gData
     yAxisLabel = "G"
   } else if (selectedUnit === "Acceleration (mm/s²)") {
-    processedData = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc, configData.g_scale)))
+    processedData = mmPerSecSquaredData
     yAxisLabel = "mm/s²"
-    
   } else {
-    const accelerations = rawAxisData.map((adc) => accelerationGToMmPerSecSquared(adcToAccelerationG(adc, configData.g_scale)))
-    // Use the actual time interval between samples for velocity calculation
-    const actualTimeInterval = totalTime / (n - 1)
-    processedData = accelerationToVelocity(accelerations, actualTimeInterval)
+    processedData = velocityData
     yAxisLabel = "mm/s"
   }
 
@@ -177,8 +178,24 @@ function prepareChartData(
     ],
   }
 
-  // คำนวณ FFT สำหรับโดเมนความถี่
-  const { magnitude, frequency } = calculateFFT(processedData, configData.fmax)
+  // const windowedData = handlingWindowFunction(processedData)
+  const deltaF = (configData.fmax * 2.56) / (configData.lor * 2.56)
+  let magnitude: number[] = [], frequency: number[] = []
+  let feqProcessedData: number[] = []
+  if (selectedUnit === "Acceleration (G)") {
+    feqProcessedData = handlingWindowFunction(gData) as number[]
+    ({ magnitude, frequency } = calculateFFT(feqProcessedData, configData.fmax))
+  } else if (selectedUnit === "Acceleration (mm/s²)") {
+    feqProcessedData = handlingWindowFunction(mmPerSecSquaredData) as number[]
+    ({ magnitude, frequency } = calculateFFT(feqProcessedData, configData.fmax))
+  } else {
+    const mmWithHanding = handlingWindowFunction(mmPerSecSquaredData) as number[]
+    ({ magnitude, frequency } = calculateFFT(mmWithHanding, configData.fmax))
+     magnitude = magnitude.map((val, idx) => val / (2 * Math.PI * (idx * deltaF)))
+
+  }
+    // คำนวณ FFT สำหรับโดเมนความถี่
+  // const { magnitude, frequency } = calculateFFT(processedData, configData.fmax)
 
   // Check if FFT calculation was successful
   if (!magnitude || magnitude.length === 0 || !frequency || frequency.length === 0) {
@@ -207,17 +224,46 @@ function prepareChartData(
   }
 
   // Remove zero frequency (DC component)
-  const freqLabels = frequency.slice(1)
-  const freqMagnitude = magnitude.slice(1)
+  const freqMagnitude = magnitude.slice(3)
+  // array of number start with 0 end with 4096
+  const freqLabels = Array.from({ length: freqMagnitude.length }, (_, i) => i * deltaF).map(label => label.toFixed(2)).slice(3)
 
   // Highlight top 5 peaks with red dots
   let pointBackgroundColor = new Array(freqMagnitude.length).fill('rgba(75, 192, 192, 0.5)')
   let topPeaks: { peak: number; rms: string; frequency: string }[] = []
   if (freqMagnitude.length > 0) {
-    // Find indices of top 5 peaks
-    const topIndices = [...freqMagnitude.keys()]
-      .sort((a, b) => freqMagnitude[b] - freqMagnitude[a])
-      .slice(0, 5)
+    // // Find indices of top 5 peaks
+    // const topIndices = [...freqMagnitude.keys()]
+    //   .sort((a, b) => freqMagnitude[b] - freqMagnitude[a])
+    //   .slice(0, 5)
+    // topIndices.forEach(idx => {
+    //   pointBackgroundColor[idx] = 'red'
+    // })
+
+    // find all peak by find three point and find the peak then push to array
+    let topIndices = []
+    for (let i = 1; i < freqMagnitude.length - 1; i++) {
+      if (freqMagnitude[i] > freqMagnitude[i - 1] && freqMagnitude[i] > freqMagnitude[i + 1]) {
+        topIndices.push(i)
+      }
+    }
+
+    // sort by bubble sort then push to topPeak array
+    let temp: number
+    for (let i = 0; i < topIndices.length - 1; i++) {
+      for (let j = 0; j < topIndices.length - i - 1; j++) {
+        if (freqMagnitude[topIndices[j]] < freqMagnitude[topIndices[j + 1]]) {
+          temp = topIndices[j]
+          topIndices[j] = topIndices[j + 1]
+          topIndices[j + 1] = temp
+        }
+      }
+    }
+
+    // use top 5
+    topIndices = topIndices.slice(0, 5)
+
+    // create red dot for top 5
     topIndices.forEach(idx => {
       pointBackgroundColor[idx] = 'red'
     })

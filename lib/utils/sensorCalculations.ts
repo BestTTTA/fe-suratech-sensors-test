@@ -5,7 +5,6 @@ import FFT from "fft.js"
 // ADC คือค่าที่ได้จากเซ็นเซอร์แบบดิจิตอล (0-1023)
 // range คือช่วงการวัดของเซ็นเซอร์ (±2G, ±4G, ±8G, ±16G)
 export function adcToAccelerationG(adcValue: number, range = 16): number {
-  const offset = 0 // ค่า offset ของเซ็นเซอร์
   let sensitivity: number
 
   // กำหนดค่า sensitivity ตามช่วงการวัด
@@ -26,13 +25,25 @@ export function adcToAccelerationG(adcValue: number, range = 16): number {
       sensitivity = 16384 // ค่าเริ่มต้น ±2G
   }
 
-  return (adcValue - offset) / sensitivity
+  return (adcValue) / sensitivity
 }
 
 // แปลงค่า Acceleration (G) เป็น mm/s²
 // 1G = 9806.65 mm/s²
 export function accelerationGToMmPerSecSquared(accelerationG: number): number {
   return accelerationG * 9806.65
+}
+
+//handing window function
+export function handlingWindowFunction(data: number[]): number[] {
+  const window = new Float64Array(data.length)
+  const result: number[] = []
+  for (let i = 0; i < data.length; i++) {
+    window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (data.length - 1)))
+    result.push(window[i] * data[i])
+  }
+  // console.log(result)
+  return result
 }
 
 // คำนวณความเร็วจากค่า acceleration
@@ -80,7 +91,7 @@ export function calculateFFT(timeData: number[], maxFreq: number = 400): { magni
     fft.realTransform(output, input)
 
     // คำนวณขนาดและความถี่
-    const n = timeData.length / 2.56
+    const n = timeData.length
     const magnitude: number[] = []
     const frequency: number[] = []
 
@@ -89,6 +100,7 @@ export function calculateFFT(timeData: number[], maxFreq: number = 400): { magni
       // ดึงส่วนจริงและส่วนจินตภาพ
       const real = output[i * 2]
       const imag = output[i * 2 + 1]
+      // console.log(real, imag)
 
       // คำนวณขนาดโดยใช้สูตร: 2.56 / n * abs(fft_res)
       const abs = Math.sqrt(real * real + imag * imag)
