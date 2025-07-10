@@ -874,7 +874,7 @@ export default function SensorDetailPage() {
           pinch: {
             enabled: true
           },
-          mode: 'xy',
+          mode: 'xy' as const,
         }},
         legend: {
         display: false,
@@ -922,7 +922,7 @@ export default function SensorDetailPage() {
           pinch: {
             enabled: true
           },
-          mode: 'xy',
+          mode: 'xy' as const,
         }},
       legend: {
         display: false,
