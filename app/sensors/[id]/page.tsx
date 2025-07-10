@@ -23,6 +23,7 @@ import {
   Legend,
   Filler,
 } from "chart.js"
+import zoomPlugin from 'chartjs-plugin-zoom';
 // Import calculation functions from utility
 import { 
   adcToAccelerationG, 
@@ -37,7 +38,7 @@ import {
 } from "@/lib/utils/sensorCalculations"
 import { getCardBackgroundColor, type SensorConfig } from "@/lib/utils/vibrationUtils"
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
+ChartJS.register(zoomPlugin, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
 
 
@@ -151,8 +152,7 @@ function prepareChartData(
   const rms = processedData.length > 0
     ? Math.sqrt(processedData.reduce((sum, val) => sum + val * val, 0) / processedData.length)
     : 0;
-  // rms / 0.707
-  const peak = rms / 0.707
+  const peak = rms
 
   // peak * 2
   const peakToPeak = peak * 2
@@ -271,7 +271,7 @@ function prepareChartData(
     // Prepare topPeaks array for the table
     topPeaks = topIndices.map(idx => ({
       peak: freqMagnitude[idx],
-      rms: (freqMagnitude[idx] * 0.707).toFixed(2),
+      rms: (freqMagnitude[idx]).toFixed(2),
       frequency: String(freqLabels[idx])
     }))
   }
