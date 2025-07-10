@@ -1511,7 +1511,7 @@ export default function SensorDetailPage() {
                   </div>
                   <div>
                     <Label htmlFor="time_interval" className="text-sm font-medium text-gray-300">
-                      Time Interval (Hours)
+                      Time Interval (Minutes)
                     </Label>
                     <Input
                       id="time_interval"
@@ -1573,7 +1573,7 @@ export default function SensorDetailPage() {
 
                 <div>
                   <Label htmlFor="alarm_ths" className="text-sm font-medium text-gray-300">
-                    Alarm Threshold (Hours)
+                    Alarm Threshold (G)
                   </Label>
                   <Input
                     id="alarm_ths"
