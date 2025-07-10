@@ -314,7 +314,7 @@ export default function RegisterSensorForm() {
                   name="timeInterval"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Time Interval (Hours)</FormLabel>
+                      <FormLabel>Time Interval (Minutes)</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g. 24" {...field} />
                       </FormControl>
