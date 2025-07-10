@@ -850,6 +850,10 @@ export default function SensorDetailPage() {
           pinch: {
             enabled: true
           },
+          drag: {
+            enabled: true,
+            mode: 'x' as const,
+          },
           mode: 'x' as const,
         }},
         legend: {
@@ -897,6 +901,10 @@ export default function SensorDetailPage() {
           },
           pinch: {
             enabled: true
+          },
+          drag: {
+            enabled: true,
+            mode: 'x' as const,
           },
           mode: 'x' as const,
         }},
