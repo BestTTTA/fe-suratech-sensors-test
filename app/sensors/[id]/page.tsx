@@ -866,7 +866,17 @@ export default function SensorDetailPage() {
       },
     },
     plugins: {
-      legend: {
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'xy',
+        }},
+        legend: {
         display: false,
       },
     },
@@ -904,6 +914,16 @@ export default function SensorDetailPage() {
       },
     },
     plugins: {
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'xy',
+        }},
       legend: {
         display: false,
       },
