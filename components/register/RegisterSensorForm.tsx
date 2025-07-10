@@ -196,45 +196,6 @@ export default function RegisterSensorForm() {
                 />
                 <FormField
                   control={form.control}
-                  name="sensorName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sensor Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Accelerometer 1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="machineNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Machine Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. M-001" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="installationPoint"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Installation Point</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Bearing 1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="machineClass"
                   render={({ field }) => (
                     <FormItem>
