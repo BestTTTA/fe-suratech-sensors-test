@@ -182,7 +182,7 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                   className="flex items-center px-2 py-1 hover:bg-gray-800 cursor-pointer border-b border-gray-700"
                   onClick={() => handleSensorClick(sensor.id)}
                 >
-                  <div className="flex-1 text-sm">{sensor.name}</div>
+                  <div className="flex-1 text-sm">{sensor.name.length > 11 ? sensor.name.slice(0, 11) + "..." : sensor.name}</div>
                   <div className="w-12 flex justify-center">
                     <span className={`px-2 py-1 rounded text-xs ${getStatusColor(sensor.operationalStatus)}`}>
                       {sensor.operationalStatus}
@@ -199,7 +199,7 @@ export default function SensorListView({ onRefresh }: SensorListViewProps) {
                   </div>
                   <div className="w-20 flex justify-center">
                     <span className={`font-semibold text-xs ${getTemperatureColor(currentTemp)}`}>
-                      {currentTemp > 0 ? currentTemp : "0"}°C
+                      {currentTemp > 0 ? currentTemp.toFixed(1) : "0"}°C
                     </span>
                   </div>
                 </div>

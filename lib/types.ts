@@ -113,6 +113,8 @@ export interface Sensor {
   threshold_medium?: number
   threshold_max?: number
   machine_class?: string | null
+  machine_number?: string | null
+  installation_point?: string | null
 }
 
 export interface Machine {

@@ -134,11 +134,60 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
     }
   }
 
+  /**
+   * Get the highest priority vibration color for sensor border
+   * Priority: Critical (red) > Concern (orange) > Warning (yellow) > Normal (green)
+   */
   const getConnectivityBorder = (sensor: Sensor) => {
-    // Use battery level or last update time to determine connectivity
+    // Check connectivity status
     const battery = sensor.last_data?.battery || 0
     const lastUpdate = sensor.last_data?.datetime
     const isOnline = battery > 0 && lastUpdate && (new Date().getTime() - new Date(lastUpdate).getTime()) < 300000 // 5 minutes
+
+    // Get vibration colors for all axes
+    const axisColors = {
+      h: getSensorAxisVibrationColor(sensor, 'h', 'light'),
+      v: getSensorAxisVibrationColor(sensor, 'v', 'light'),
+      a: getSensorAxisVibrationColor(sensor, 'a', 'light')
+    }
+
+    // Define priority levels (highest to lowest)
+    const priorityLevels = [
+      { level: 'critical', keywords: ['red', 'critical'] },
+      { level: 'concern', keywords: ['orange', 'concern'] },
+      { level: 'warning', keywords: ['yellow', 'warning'] },
+      { level: 'normal', keywords: ['green', 'normal'] }
+    ]
+
+    // Find the highest priority level present in any axis
+    for (const { level, keywords } of priorityLevels) {
+      const hasLevel = Object.values(axisColors).some(color => 
+        keywords.some(keyword => color.includes(keyword))
+      )
+      
+      if (hasLevel) {
+        // Convert background color to border color
+        const matchingColor = Object.values(axisColors).find(color => 
+          keywords.some(keyword => color.includes(keyword))
+        )
+        
+        if (matchingColor) {
+          // Convert bg-* classes to border-* classes
+          return matchingColor.replace('bg-', 'border-')
+        }
+        
+        // Fallback border colors if no matching color found
+        const borderColorMap = {
+          'critical': 'border-red-500',
+          'concern': 'border-orange-500', 
+          'warning': 'border-yellow-500',
+          'normal': 'border-green-500'
+        }
+        return borderColorMap[level as keyof typeof borderColorMap] || 'border-gray-500'
+      }
+    }
+
+    // Fallback to connectivity-based color
     return isOnline ? "border-green-500" : "border-gray-500"
   }
 
