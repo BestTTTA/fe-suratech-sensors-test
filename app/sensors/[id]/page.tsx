@@ -383,7 +383,8 @@ export default function SensorDetailPage() {
         machineClass: configData.machine_class || prev.machineClass,
         fmax: configData.fmax || prev.fmax,
         lor: configData.lor || prev.lor,
-        g_scale: configData.g_scale || prev.g_scale,
+        // Use g_scale from config endpoint (API value)
+        g_scale: configData.g_scale || prev.g_scale || 16,
         time_interval: configData.time_interval || prev.time_interval,
         alarm_ths: configData.alarm_ths || prev.alarm_ths,
         thresholdMin: configData.threshold_min?.toString() || prev.thresholdMin,
@@ -551,7 +552,8 @@ export default function SensorDetailPage() {
         machineClass: prev.machineClass || "", // Keep existing value if available
         fmax: sensorLastData.fmax || 10000,
         lor: sensorLastData.lor || 6400,
-        g_scale: sensorLastData.g_scale || 16,
+        // Use g_scale from sensorLastData (should match API config)
+        g_scale: sensorLastData.g_scale || prev.g_scale || 16,
         time_interval: sensorLastData.time_interval || 3,
         alarm_ths: sensorLastData.alarm_ths || 5.0,
         thresholdMin: prev.thresholdMin || "",
@@ -671,11 +673,12 @@ export default function SensorDetailPage() {
   // Use utility function for card background color - use configData for threveold values
   const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
     // Use configData for threshold values since we fetch complete config from API
+    // Use the same fallback logic as the main page for consistency
     
     const sensorConfig: SensorConfig = {
-      thresholdMin: configData.thresholdMin ? Number(configData.thresholdMin) : undefined,
-      thresholdMedium: configData.thresholdMedium ? Number(configData.thresholdMedium) : undefined,
-      thresholdMax: configData.thresholdMax ? Number(configData.thresholdMax) : undefined,
+      thresholdMin: configData.thresholdMin ? Number(configData.thresholdMin) : 0.1,
+      thresholdMedium: configData.thresholdMedium ? Number(configData.thresholdMedium) : 0.125,
+      thresholdMax: configData.thresholdMax ? Number(configData.thresholdMax) : 0.15,
       machineClass: configData.machineClass || undefined
     }
 
@@ -785,17 +788,18 @@ export default function SensorDetailPage() {
   const xStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.h) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
     return getAxisTopPeakStats(sensorLastData.data.h, timeInterval, configData.g_scale, configData.fmax);
-  }, [sensorLastData?.data?.h, timeInterval, loading, configData.g_scale]);
+  }, [sensorLastData?.data?.h, timeInterval, loading, configData.g_scale, configData.lor, configData.fmax]);
   
   const yStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.v) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
+    
     return getAxisTopPeakStats(sensorLastData.data.v, timeInterval, configData.g_scale, configData.fmax);
-  }, [sensorLastData?.data?.v, timeInterval, loading, configData.g_scale]);
+  }, [sensorLastData?.data?.v, timeInterval, loading, configData.g_scale, configData.lor, configData.fmax]);
   
   const zStats = useMemo(() => {
     if (loading || !sensorLastData?.data?.a) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
     return getAxisTopPeakStats(sensorLastData.data.a, timeInterval, configData.g_scale, configData.fmax);
-  }, [sensorLastData?.data?.a, timeInterval, loading, configData.g_scale]);
+  }, [sensorLastData?.data?.a, timeInterval, loading, configData.g_scale, configData.lor, configData.fmax]);
 
   // Summary log for all axes when data changes
   useEffect(() => {

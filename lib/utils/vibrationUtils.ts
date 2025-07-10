@@ -31,11 +31,10 @@ export function getVibrationLevel(
   velocityValue: number, 
   thresholds?: VibrationThresholds
 ): VibrationLevel {
-  const minThreshold = thresholds?.min ?? 1
-  const mediumThreshold = thresholds?.medium ?? 2
-  const maxThreshold = thresholds?.max ?? 3
-
- 
+  // Use more reasonable default thresholds that match typical sensor configurations
+  const minThreshold = thresholds?.min ?? 0.1    // 0.1 mm/s
+  const mediumThreshold = thresholds?.medium ?? 0.125  // 0.125 mm/s
+  const maxThreshold = thresholds?.max ?? 0.15   // 0.15 mm/s
 
   if (velocityValue < minThreshold) {
     return 'normal'
@@ -171,16 +170,20 @@ export function getSensorAxisVibrationColor(
       const totalTime = lor / fmax;
       const timeInterval = totalTime / (axisData.length - 1);
     
-      const stats = getAxisTopPeakStats(axisData, timeInterval, g_scale, fmax)
+      // Use sensor's g_scale from API, fallback to parameter, then default
+      const sensorGScale = sensor.g_scale || g_scale || 16;
+      const stats = getAxisTopPeakStats(axisData, timeInterval, sensorGScale, fmax)
       const velocityValue = parseFloat(stats.velocityTopPeak)
+    
       
-      // Use sensor's own threshold configuration if available
+      // Use sensor's own threshold configuration if available, with fallback to defaults
       const sensorConfig: SensorConfig = {
-        thresholdMin: sensor.threshold_min,
-        thresholdMedium: sensor.threshold_medium,
-        thresholdMax: sensor.threshold_max,
+        thresholdMin: sensor.threshold_min !== undefined ? Number(sensor.threshold_min) : 0.1,
+        thresholdMedium: sensor.threshold_medium !== undefined ? Number(sensor.threshold_medium) : 0.125,
+        thresholdMax: sensor.threshold_max !== undefined ? Number(sensor.threshold_max) : 0.15,
         machineClass: sensor.machine_class || undefined
       }
+
 
       return getVibrationColorFromVelocity(velocityValue, sensorConfig, scheme, false)
     }
