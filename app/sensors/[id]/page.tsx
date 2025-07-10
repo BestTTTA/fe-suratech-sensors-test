@@ -34,7 +34,8 @@ import {
   getAxisStats,
   calculateVibrationStats,
   SENSOR_CONSTANTS,
-  handlingWindowFunction
+  handlingWindowFunction,
+  findTopPeaks
 } from "@/lib/utils/sensorCalculations"
 import { getCardBackgroundColor, type SensorConfig } from "@/lib/utils/vibrationUtils"
 
@@ -148,7 +149,8 @@ function prepareChartData(
     yAxisLabel = "mm/s"
   }
 
-  // Calculate Overall Statistics in selected unit
+  // ===== OVERALL STATISTICS CALCULATION =====
+  // Calculate RMS using the same method as getAxisTopPeakStats
   const rms = processedData.length > 0
     ? Math.sqrt(processedData.reduce((sum, val) => sum + val * val, 0) / processedData.length)
     : 0;
@@ -178,13 +180,14 @@ function prepareChartData(
     ],
   }
 
-  // const windowedData = handlingWindowFunction(processedData)
+  // ===== FFT CALCULATIONS =====
   const deltaF = (configData.fmax * 2.56) / (configData.lor * 2.56)
   let magnitude: number[] = [], frequency: number[] = []
   let feqProcessedData: number[] = []
   if (selectedUnit === "Acceleration (G)") {
-    feqProcessedData = handlingWindowFunction(gData) as number[]
-    ({ magnitude, frequency } = calculateFFT(feqProcessedData, configData.fmax))
+    // Use the same method as getAxisTopPeakStats for consistency
+    // Don't apply windowing for Acceleration (G) to match Horizontal (H) card
+    ({ magnitude, frequency } = calculateFFT(gData, configData.fmax))
   } else if (selectedUnit === "Acceleration (mm/s²)") {
     feqProcessedData = handlingWindowFunction(mmPerSecSquaredData) as number[]
     ({ magnitude, frequency } = calculateFFT(feqProcessedData, configData.fmax))
@@ -192,10 +195,7 @@ function prepareChartData(
     const mmWithHanding = handlingWindowFunction(mmPerSecSquaredData) as number[]
     ({ magnitude, frequency } = calculateFFT(mmWithHanding, configData.fmax))
      magnitude = magnitude.map((val, idx) => val / (2 * Math.PI * (idx * deltaF)))
-
   }
-    // คำนวณ FFT สำหรับโดเมนความถี่
-  // const { magnitude, frequency } = calculateFFT(processedData, configData.fmax)
 
   // Check if FFT calculation was successful
   if (!magnitude || magnitude.length === 0 || !frequency || frequency.length === 0) {
@@ -223,57 +223,27 @@ function prepareChartData(
     };
   }
 
+  // ===== PEAK FINDING USING STRUCTURED FUNCTION =====
   // Remove zero frequency (DC component)
   const freqMagnitude = magnitude.slice(3)
   // array of number start with 0 end with 4096
   const freqLabels = Array.from({ length: freqMagnitude.length }, (_, i) => i * deltaF).map(label => label.toFixed(2)).slice(3)
 
-  // Highlight top 5 peaks with red dots
-  let pointBackgroundColor = new Array(freqMagnitude.length).fill('rgba(75, 192, 192, 0.5)')
+  // Use findTopPeaks function for consistent peak detection
+  // For Acceleration (G), ensure we're using the same data as Horizontal (H) card
   let topPeaks: { peak: number; rms: string; frequency: string }[] = []
-  if (freqMagnitude.length > 0) {
-    // // Find indices of top 5 peaks
-    // const topIndices = [...freqMagnitude.keys()]
-    //   .sort((a, b) => freqMagnitude[b] - freqMagnitude[a])
-    //   .slice(0, 5)
-    // topIndices.forEach(idx => {
-    //   pointBackgroundColor[idx] = 'red'
-    // })
-
-    // find all peak by find three point and find the peak then push to array
-    let topIndices = []
-    for (let i = 1; i < freqMagnitude.length - 1; i++) {
-      if (freqMagnitude[i] > freqMagnitude[i - 1] && freqMagnitude[i] > freqMagnitude[i + 1]) {
-        topIndices.push(i)
-      }
-    }
-
-    // sort by bubble sort then push to topPeak array
-    let temp: number
-    for (let i = 0; i < topIndices.length - 1; i++) {
-      for (let j = 0; j < topIndices.length - i - 1; j++) {
-        if (freqMagnitude[topIndices[j]] < freqMagnitude[topIndices[j + 1]]) {
-          temp = topIndices[j]
-          topIndices[j] = topIndices[j + 1]
-          topIndices[j + 1] = temp
-        }
-      }
-    }
-
-    // use top 5
-    topIndices = topIndices.slice(0, 5)
-
-    // create red dot for top 5
-    topIndices.forEach(idx => {
-      pointBackgroundColor[idx] = 'red'
-    })
-
-    // Prepare topPeaks array for the table
-    topPeaks = topIndices.map(idx => ({
-      peak: freqMagnitude[idx],
-      rms: (freqMagnitude[idx]).toFixed(2),
-      frequency: String(freqLabels[idx])
-    }))
+  let pointBackgroundColor: string[] = []
+  
+  if (selectedUnit === "Acceleration (G)") {
+    // For Acceleration (G), use the same FFT magnitude data as getAxisTopPeakStats
+    const { topPeaks: fftPeaks, pointBackgroundColor: fftColors } = findTopPeaks(freqMagnitude, freqLabels, 5)
+    topPeaks = fftPeaks
+    pointBackgroundColor = fftColors
+  } else {
+    // For other units, use the processed magnitude data
+    const { topPeaks: processedPeaks, pointBackgroundColor: processedColors } = findTopPeaks(freqMagnitude, freqLabels, 5)
+    topPeaks = processedPeaks
+    pointBackgroundColor = processedColors
   }
 
   const freqChartData = {
