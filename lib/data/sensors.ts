@@ -180,8 +180,13 @@ export async function getSensors(filters: SensorFilters = {}): Promise<{ sensors
   // Fetch real sensors from API
   const realSensors = await fetchRealSensors()
 
-  // Use only real sensors (no mock sensors)
-  let allSensors = [...realSensors]
+  // Generate mock sensors to continue from API data
+  if (!mockSensors) {
+    mockSensors = generateMockSensors(1000)
+  }
+
+  // Combine real and mock sensors seamlessly
+  let allSensors = [...realSensors, ...mockSensors]
 
   // Apply filters
   if (filters.status && filters.status !== "all") {

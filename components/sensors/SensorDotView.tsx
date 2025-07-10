@@ -57,7 +57,7 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const sensorsPerPage = 200 // Maximum sensors per page for dot view
+  const sensorsPerPage = 600 // Maximum sensors per page for dot view
   const hasInitiallyLoaded = useRef(false)
 
   const fetchSensors = useCallback(
@@ -153,74 +153,76 @@ export default function SensorDotView({ onRefresh }: SensorDotViewProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div>
       <TooltipProvider>
-        <div className="grid grid-cols-50 gap-10">
-          {sensors.map((sensor) => {
-            const currentTemp = sensor.last_data?.temperature || 0
-            const battery = sensor.last_data?.battery || 0
-            const lastUpdate = sensor.last_data?.datetime
-            const isOnline = battery > 0 && lastUpdate && (new Date().getTime() - new Date(lastUpdate).getTime()) < 300000 // 5 minutes
+        <div className="w-full">
+        <div className="grid [grid-template-columns:repeat(40,minmax(0,1fr))] gap-1 w-full">
+            {sensors.map((sensor) => {
+              const currentTemp = sensor.last_data?.temperature || 0
+              const battery = sensor.last_data?.battery || 0
+              const lastUpdate = sensor.last_data?.datetime
+              const isOnline = battery > 0 && lastUpdate && (new Date().getTime() - new Date(lastUpdate).getTime()) < 300000 // 5 minutes
 
-            return (
-              <Tooltip key={sensor.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    className={`w-8 h-8 rounded-full flex flex-col items-center justify-center cursor-pointer border border-[1.5px] ${getConnectivityBorder(sensor)} bg-gray-900 hover:bg-gray-800 transition-colors`}
-                    onClick={() => handleSensorClick(sensor.id)}
-                  >
-                    <span className={`font-bold text-[10px] ${getTemperatureColor(currentTemp)}`}>
-                      {currentTemp > 0 ? Math.round(currentTemp) : "0"}
-                    </span>
-                    <div className="flex space-x-0.5 mt-0.5">
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'h')}`} />
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'v')}`} />
-                      <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'a')}`} />
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white">
-                  <div className="space-y-1 text-xs">
-                    <div className="font-semibold">{sensor.name || "Unknown Sensor"}</div>
-                    <div className="text-gray-400">{sensor.model || "Unknown Model"}</div>
-                    <div className="text-gray-400">{sensor.machineName || "Unknown Machine"}</div>
-                    <div className="flex items-center space-x-2">
-                      <span>Temp: {currentTemp.toFixed(1)}°C</span>
-                      <span>Battery: {battery.toFixed(0)}%</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span>Status:</span>
-                      <div className={`w-2 h-2 ${isOnline ? "bg-green-500" : "bg-gray-500"} rounded-full`} />
-                      <span className="text-xs">{isOnline ? "online" : "offline"}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span>Vibration:</span>
-                      <div className="flex space-x-0.5">
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'h')} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'v')} rounded-full`} />
-                        <div className={`w-1 h-1 ${getVibrationColor(sensor, 'a')} rounded-full`} />
+              return (
+                <Tooltip key={sensor.id}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`w-8 h-8 rounded-full flex flex-col items-center justify-center cursor-pointer border border-[1.5px] ${getConnectivityBorder(sensor)} bg-gray-900 hover:bg-gray-800 transition-colors`}
+                      onClick={() => handleSensorClick(sensor.id)}
+                    >
+                      <span className={`font-bold text-[10px] ${getTemperatureColor(currentTemp)}`}>
+                        {currentTemp > 0 ? Math.round(currentTemp) : "0"}
+                      </span>
+                      <div className="flex space-x-0.5 mt-0.5">
+                        <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'h')}`} />
+                        <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'v')}`} />
+                        <div className={`w-1 h-1 rounded-full ${getVibrationColor(sensor, 'a')}`} />
                       </div>
                     </div>
-                    {sensor.h_stats && (
-                      <div className="text-gray-400">
-                        H: {sensor.h_stats.velocityTopPeak} mm/s
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="bg-gray-900 border-gray-700 text-white">
+                    <div className="space-y-1 text-xs">
+                      <div className="font-semibold">{sensor.name || "Unknown Sensor"}</div>
+                      <div className="text-gray-400">{sensor.model || "Unknown Model"}</div>
+                      <div className="text-gray-400">{sensor.machineName || "Unknown Machine"}</div>
+                      <div className="flex items-center space-x-2">
+                        <span>Temp: {currentTemp.toFixed(1)}°C</span>
+                        <span>Battery: {battery.toFixed(0)}%</span>
                       </div>
-                    )}
-                    {sensor.v_stats && (
-                      <div className="text-gray-400">
-                        V: {sensor.v_stats.velocityTopPeak} mm/s
+                      <div className="flex items-center space-x-1">
+                        <span>Status:</span>
+                        <div className={`w-2 h-2 ${isOnline ? "bg-green-500" : "bg-gray-500"} rounded-full`} />
+                        <span className="text-xs">{isOnline ? "online" : "offline"}</span>
                       </div>
-                    )}
-                    {sensor.a_stats && (
-                      <div className="text-gray-400">
-                        A: {sensor.a_stats.velocityTopPeak} mm/s
+                      <div className="flex items-center space-x-1">
+                        <span>Vibration:</span>
+                        <div className="flex space-x-0.5">
+                          <div className={`w-1 h-1 ${getVibrationColor(sensor, 'h')} rounded-full`} />
+                          <div className={`w-1 h-1 ${getVibrationColor(sensor, 'v')} rounded-full`} />
+                          <div className={`w-1 h-1 ${getVibrationColor(sensor, 'a')} rounded-full`} />
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            )
-          })}
+                      {sensor.h_stats && (
+                        <div className="text-gray-400">
+                          H: {sensor.h_stats.velocityTopPeak} mm/s
+                        </div>
+                      )}
+                      {sensor.v_stats && (
+                        <div className="text-gray-400">
+                          V: {sensor.v_stats.velocityTopPeak} mm/s
+                        </div>
+                      )}
+                      {sensor.a_stats && (
+                        <div className="text-gray-400">
+                          A: {sensor.a_stats.velocityTopPeak} mm/s
+                        </div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </div>
         </div>
       </TooltipProvider>
 
