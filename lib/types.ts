@@ -44,8 +44,8 @@ export interface AuthError {
 // New interface for the updated API structure
 export interface SensorApiData {
   id: string
-  serial_number: string
-  sensor_name: string
+  name: string
+  sensor_name: string | null
   sensor_type: string | null
   unit: string | null
   fmax?: number
@@ -56,10 +56,13 @@ export interface SensorApiData {
   created_at: string
   updated_at: string
   machine_id: string | null
+  machine_no?: string | null
   machine_class?: string | null
   threshold_min?: number
   threshold_medium?: number
   threshold_max?: number
+  installed_point?: string | null
+  note?: string | null
   last_data: {
     datetime: string
     temperature: number

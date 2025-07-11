@@ -379,9 +379,9 @@ export default function SensorDetailPage() {
       setConfigData(prev => ({
         ...prev,
         serialNumber: configData.serial_number || prev.serialNumber,
-        sensorName: configData.sensor_name || prev.sensorName,
-        machineNumber: configData.machine_number || prev.machineNumber,
-        installationPoint: configData.installation_point || prev.installationPoint,
+        sensorName: configData.sensor_name,
+        machineNumber: configData.machine_no,
+        installationPoint: configData.installed_point,
         machineClass: configData.machine_class || prev.machineClass,
         fmax: configData.fmax || prev.fmax,
         lor: configData.lor || prev.lor,
@@ -502,33 +502,6 @@ export default function SensorDetailPage() {
       return []
     }
   }
-
-  // Function to initialize config data from sensor data (no API call needed)
-  const initializeConfigData = () => {
-    if (sensor) {
-      setConfigData(prev => ({
-        ...prev,
-        sensorName: sensor.name || "",
-        machineNumber: prev.machineNumber || "",
-        installationPoint: prev.installationPoint || "",
-        machineClass: sensor.machine_class || "",
-        fmax: sensor.fmax || 10000,
-        lor: sensor.lor || 6400,
-        g_scale: sensor.g_scale || 16,
-        time_interval: sensor.time_interval || 3,
-        alarm_ths: sensor.alarm_ths || 5.0,
-        thresholdMin: sensor.threshold_min?.toString() || "",
-        thresholdMedium: sensor.threshold_medium?.toString() || "",
-        thresholdMax: sensor.threshold_max?.toString() || "",
-        notes: prev.notes || "",
-        // Default axis configuration (can be updated via config modal)
-        hAxisEnabled: prev.hAxisEnabled !== false, // Default to true
-        vAxisEnabled: prev.vAxisEnabled !== false, // Default to true
-        aAxisEnabled: prev.aAxisEnabled !== false  // Default to true
-      }))
-    }
-  }
-
   // Set mounted state to prevent SSR hydration issues
   useEffect(() => {
     setMounted(true)
@@ -548,10 +521,10 @@ export default function SensorDetailPage() {
     if (sensorLastData) {
       setConfigData(prev => ({
         ...prev,
-        sensorName: sensorLastData.name || sensor?.name || "",
-        machineNumber: prev.machineNumber || "", // Keep existing value if available
-        installationPoint: prev.installationPoint || "", // Keep existing value if available
-        machineClass: prev.machineClass || "", // Keep existing value if available
+        sensorName: configData.sensorName || "",
+        machineNumber: configData.machineNumber || "", // Keep existing value if available
+        installationPoint: configData.installationPoint || "", // Keep existing value if available
+        machineClass: configData.machineClass || "", // Keep existing value if available
         fmax: sensorLastData.fmax || 10000,
         lor: sensorLastData.lor || 6400,
         // Use g_scale from sensorLastData (should match API config)
@@ -1063,7 +1036,7 @@ export default function SensorDetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Sensor Name</span>
-                      <span>{configData.sensorName || sensor.name || "Unnamed Sensor"}</span>
+                      <span>{configData.sensorName || "Unnamed Sensor"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Machine Number</span>

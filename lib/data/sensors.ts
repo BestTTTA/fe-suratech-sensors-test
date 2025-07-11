@@ -125,24 +125,24 @@ async function fetchRealSensors(): Promise<Sensor[]> {
 
       const sensor: Sensor = {
         id: apiSensor.id,
-        serialNumber: apiSensor.serial_number,
+        serialNumber: apiSensor.name, // Use name as serial number since it's the device identifier
         machineName: apiSensor.sensor_type || "Unknown Machine",
-        location: "API Location", // Default since not provided in API
-        installationDate: new Date(apiSensor.created_at).getTime(), // Use created_at from API
+        location: apiSensor.installed_point || "API Location",
+        installationDate: new Date(apiSensor.created_at).getTime(),
         lastUpdated: new Date(apiSensor.last_data?.datetime || now).getTime(),
         readings,
         status,
         maintenanceHistory: [],
         // New fields for card display
-        name: apiSensor.sensor_name,
+        name: apiSensor.sensor_name || apiSensor.name, // Use sensor_name if available, otherwise fallback to name
         model: `Model-${apiSensor.id.substring(0, 8)}`,
         operationalStatus: apiSensor.last_data ? "running" : "standby",
         batteryLevel: apiSensor.last_data?.battery || 0,
         connectivity: apiSensor.last_data ? "online" : "offline",
         signalStrength: apiSensor.last_data?.rssi || 0,
-        vibrationH: "normal", // Will be calculated based on actual data
-        vibrationV: "normal", // Will be calculated based on actual data
-        vibrationA: "normal", // Will be calculated based on actual data
+        vibrationH: "normal",
+        vibrationV: "normal",
+        vibrationA: "normal",
         // Store raw API data for access by components
         last_data: {
           ...apiSensor.last_data,
@@ -165,6 +165,9 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         threshold_medium: apiSensor.threshold_medium,
         threshold_max: apiSensor.threshold_max,
         machine_class: apiSensor.machine_class,
+        machine_number: apiSensor.machine_no,
+        installation_point: apiSensor.installed_point,
+        sensor_name: apiSensor.sensor_name,
       }
 
       return sensor
