@@ -42,22 +42,12 @@ const formSchema = z.object({
     .string()
     .min(4, { message: "Serial number must be at least 4 characters" })
     .max(20, { message: "Serial number must be less than 20 characters" }),
-  sensorName: z
-    .string()
-    .min(2, { message: "Sensor name must be at least 2 characters" })
-    .max(50, { message: "Sensor name must be less than 50 characters" }),
-  machineNumber: z
-    .string()
-    .min(1, { message: "Please enter machine number" }),
-  installationPoint: z
-    .string()
-    .min(2, { message: "Installation point must be at least 2 characters" }),
-  machineClass: z.string({ required_error: "Please select a machine class" }),
+  machineClass: z.string().min(1, { message: "Please select a machine class" }),
   maxFrequency: z
     .string()
     .min(1, { message: "Please enter maximum frequency" }),
-  lor: z.string({ required_error: "Please select LOR" }),
-  gScale: z.string({ required_error: "Please select G-scale" }),
+  lor: z.string().min(1, { message: "Please select LOR" }),
+  gScale: z.string().min(1, { message: "Please select G-scale" }),
   timeInterval: z.string().min(1, { message: "Please enter time interval" }),
   alarmThreshold: z
     .string()
@@ -79,9 +69,6 @@ export default function RegisterSensorForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       serialNumber: "",
-      sensorName: "",
-      machineNumber: "",
-      installationPoint: "",
       machineClass: "",
       maxFrequency: "",
       lor: "",
@@ -122,9 +109,6 @@ export default function RegisterSensorForm() {
       // Map form values to API payload
       const payload = {
         serial_number: values.serialNumber,
-        sensor_name: values.sensorName,
-        machine_number: values.machineNumber,
-        installation_point: values.installationPoint,
         machine_class: values.machineClass,
         max_frequency: Number(values.maxFrequency),
         g_scale: Number(values.gScale),

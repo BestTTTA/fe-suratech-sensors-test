@@ -22,7 +22,7 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
 
   // Safely access sensor properties with fallbacks
   const safeModel = sensor?.model || "Unknown Model";
-  const safeName = sensor?.name || "Unknown Sensor";
+  const safeName = sensor?.sensor_name || "Unknown Sensor";
   const safeStatus = sensor?.operationalStatus || "standby";
   const safeBatteryLevel = sensor?.batteryLevel || 0;
   const safeConnectivity = sensor?.connectivity || "offline";

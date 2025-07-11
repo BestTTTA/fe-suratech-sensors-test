@@ -122,11 +122,10 @@ async function fetchRealSensors(): Promise<Sensor[]> {
       }
 
       // Generate sensor number from name or use index
-      const sensorNumber = apiSensor.name.replace(/[^0-9]/g, "") || "001"
 
       const sensor: Sensor = {
         id: apiSensor.id,
-        serialNumber: `S-${sensorNumber.padStart(4, "0")}`,
+        serialNumber: apiSensor.serial_number,
         machineName: apiSensor.sensor_type || "Unknown Machine",
         location: "API Location", // Default since not provided in API
         installationDate: new Date(apiSensor.created_at).getTime(), // Use created_at from API
@@ -135,7 +134,7 @@ async function fetchRealSensors(): Promise<Sensor[]> {
         status,
         maintenanceHistory: [],
         // New fields for card display
-        name: apiSensor.name,
+        name: apiSensor.sensor_name,
         model: `Model-${apiSensor.id.substring(0, 8)}`,
         operationalStatus: apiSensor.last_data ? "running" : "standby",
         batteryLevel: apiSensor.last_data?.battery || 0,
