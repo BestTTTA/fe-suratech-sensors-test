@@ -132,24 +132,9 @@ export function generateMockSensors(count: number): Sensor[] {
     const sensorNumber = (100 + i + 1).toString().padStart(3, "0")
 
     // Generate model name
-    const modelNumber = Math.floor(Math.random() * 1000000000000000)
-      .toString()
-      .padStart(15, "0")
+    const modelNumber = 99999
     const modelName = `Model-2025-${modelNumber}`
-
-    // Generate random status
-    const statusOptions = ["running", "standby", "alarm"] as const
-    const statusWeights = [0.4, 0.5, 0.1] // 40% running, 50% standby, 10% alarm
-    const randomValue = Math.random()
-    let selectedStatus: "running" | "standby" | "alarm" = "standby"
-
-    if (randomValue < statusWeights[0]) {
-      selectedStatus = "running"
-    } else if (randomValue < statusWeights[0] + statusWeights[1]) {
-      selectedStatus = "standby"
-    } else {
-      selectedStatus = "alarm"
-    }
+    const selectedStatus = "standby"
 
     // Create sensor
     const sensor: Sensor = {
@@ -157,8 +142,8 @@ export function generateMockSensors(count: number): Sensor[] {
       serialNumber: generateSerialNumber(),
       machineName: generateMachineName(),
       location: generateLocation(),
-      installationDate: now - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000), // Up to 1 year ago
-      lastUpdated: now - Math.floor(Math.random() * 24 * 60 * 60 * 1000), // Up to 24 hours ago
+      installationDate: now , // Up to 1 year ago
+      lastUpdated: now , // Up to 24 hours ago
       readings,
       status: determineSensorStatus(readings),
       maintenanceHistory: generateMaintenanceHistory(),
@@ -166,19 +151,19 @@ export function generateMockSensors(count: number): Sensor[] {
       name: `Sensor-${sensorNumber}`,
       model: modelName,
       operationalStatus: selectedStatus,
-      batteryLevel: Math.floor(Math.random() * 100) + 1, // 1-100%
-      connectivity: Math.random() > 0.1 ? "online" : "offline", // 90% online
-      signalStrength: Math.floor(Math.random() * 100) + 1, // 1-100%
-      vibrationH: Math.random() > 0.85 ? "critical" : Math.random() > 0.7 ? "warning" : "normal",
-      vibrationV: Math.random() > 0.85 ? "critical" : Math.random() > 0.7 ? "warning" : "normal",
-      vibrationA: Math.random() > 0.85 ? "critical" : Math.random() > 0.7 ? "warning" : "normal",
+      batteryLevel: 100, // 1-100%
+      connectivity: "offline", // 90% online
+      signalStrength: 100, // 1-100%
+      vibrationH: "normal",
+      vibrationV:  "normal",
+      vibrationA: "normal",
       last_data: {
-        temperature: Math.floor(Math.random() * 100),
-        vibrationX: Math.random() * 10,
-        vibrationY: Math.random() * 10,
-        vibrationZ: Math.random() * 10,
-        battery: Math.floor(Math.random() * 100) + 1,
-        rssi: Math.floor(Math.random() * 100) + 1,
+        temperature: 30,
+        vibrationX: 10,
+        vibrationY: 10,
+        vibrationZ: 10,
+        battery: 10,
+        rssi: 10,
       },
       fmax: 400,
     }

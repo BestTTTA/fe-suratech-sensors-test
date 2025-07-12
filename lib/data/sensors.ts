@@ -184,7 +184,7 @@ export async function getSensors(filters: SensorFilters = {}): Promise<{ sensors
 
   // Generate mock sensors to continue from API data
   if (!mockSensors) {
-    mockSensors = generateMockSensors(1000)
+    mockSensors = generateMockSensors(300)
   }
 
   // Combine real and mock sensors seamlessly
