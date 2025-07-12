@@ -67,7 +67,7 @@ export default function SensorsPage() {
     if (hasInitiallyLoaded.current) {
       autoRefreshIntervalRef.current = setInterval(() => {
         updateSensorData()
-      }, 10000)
+      }, 60000) // Increased from 10s to 60s
     }
     return () => {
       if (autoRefreshIntervalRef.current) {

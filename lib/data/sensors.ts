@@ -7,9 +7,18 @@ import { getAxisTopPeakStats, SENSOR_CONSTANTS } from "@/lib/utils/sensorCalcula
 
 // Cache the generated sensors to avoid regenerating on each request
 let mockSensors: Sensor[] | null = null
+let realSensorsCache: Sensor[] | null = null
+let lastFetchTime = 0
+const CACHE_DURATION = 30000 // 30 seconds cache
 
 // Function to fetch real sensors from API
 async function fetchRealSensors(): Promise<Sensor[]> {
+  // Check cache first
+  const now = Date.now()
+  if (realSensorsCache && (now - lastFetchTime) < CACHE_DURATION) {
+    return realSensorsCache
+  }
+
   try {
     const response = await fetch("https://sc.promptlabai.com/suratech/sensors/with-last-data", {
       cache: "no-store", // Disable caching for real-time data
@@ -23,7 +32,7 @@ async function fetchRealSensors(): Promise<Sensor[]> {
     const apiData = await response.json()
 
     // Transform API data to match our Sensor interface
-    return apiData.map((apiSensor: SensorApiData) => {
+    const result = apiData.map((apiSensor: SensorApiData) => {
       const now = Date.now()
 
       // Create readings from data if available
@@ -31,8 +40,6 @@ async function fetchRealSensors(): Promise<Sensor[]> {
       if (apiSensor.last_data) {
         // Use the new simplified data structure
         const temperature = apiSensor.last_data.temperature || 0
-        const battery = apiSensor.last_data.battery || 0
-        const rssi = apiSensor.last_data.rssi || 0
         
         // Extract H, V, A data from separate arrays
         let hData: number[] = []
@@ -172,6 +179,12 @@ async function fetchRealSensors(): Promise<Sensor[]> {
 
       return sensor
     })
+    
+    // Cache the result
+    realSensorsCache = result
+    lastFetchTime = now
+    
+    return result
   } catch (error) {
     return []
   }
@@ -184,7 +197,7 @@ export async function getSensors(filters: SensorFilters = {}): Promise<{ sensors
 
   // Generate mock sensors to continue from API data
   if (!mockSensors) {
-    mockSensors = generateMockSensors(300)
+    mockSensors = generateMockSensors(50) // Reduced from 300 to 50
   }
 
   // Combine real and mock sensors seamlessly

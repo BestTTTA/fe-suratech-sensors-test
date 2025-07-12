@@ -510,9 +510,14 @@ export default function SensorDetailPage() {
   // ฟังก์ชันดึงข้อมูลเมื่อคอมโพเนนต์โหลด
   useEffect(() => {
     if (mounted) {
-      fetchSensor()
-      fetchSensorDatetimes(params.id)
-      fetchSensorConfig(params.id) // Fetch config on mount
+      // Fetch data in parallel instead of sequentially
+      Promise.all([
+        fetchSensor(),
+        fetchSensorDatetimes(params.id),
+        fetchSensorConfig(params.id)
+      ]).catch(error => {
+        console.error("Error fetching sensor data:", error)
+      })
     }
   }, [params.id, mounted])
 
