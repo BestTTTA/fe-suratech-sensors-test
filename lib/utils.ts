@@ -39,34 +39,22 @@ export function formatDate(dateString: string, includeTime = false): string {
 export function formatRawTime(dateString: string): string {
   if (!dateString) return "N/A"
   try {
-    // For ISO strings with 'Z' (UTC), extract the date and time directly without timezone conversion
-    if (dateString.includes('T') && dateString.includes('Z')) {
-      // Extract date and time parts from ISO string (e.g., "2025-07-01T09:59:15Z" -> "07/01/2025 09:59")
-      const dateTimeMatch = dateString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):/)
-      if (dateTimeMatch) {
-        const year = dateTimeMatch[1]
-        const month = dateTimeMatch[2]
-        const day = dateTimeMatch[3]
-        const hours = dateTimeMatch[4]
-        const minutes = dateTimeMatch[5]
-        return `${month}/${day}/${year} ${hours}:${minutes}`
-      }
-    }
-    
-    // Fallback to UTC parsing if the above doesn't work
     const date = new Date(dateString)
     if (isNaN(date.getTime())) {
       return "Invalid date"
     }
     
-    // Format as MM/DD/YYYY HH:MM (24-hour format) using UTC to avoid timezone conversion
-    const day = date.getUTCDate().toString().padStart(2, '0')
-    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0')
-    const year = date.getUTCFullYear()
-    const hours = date.getUTCHours().toString().padStart(2, '0')
-    const minutes = date.getUTCMinutes().toString().padStart(2, '0')
+    // Convert to Thailand time (UTC+7)
+    const thailandTime = new Date(date.getTime() + (7 * 60 * 60 * 1000))
     
-    return `${month}/${day}/${year} ${hours}:${minutes}`
+    // Format as DD/MM/YYYY HH:MM (Thailand format, 24-hour)
+    const day = thailandTime.getUTCDate().toString().padStart(2, '0')
+    const month = (thailandTime.getUTCMonth() + 1).toString().padStart(2, '0')
+    const year = thailandTime.getUTCFullYear()
+    const hours = thailandTime.getUTCHours().toString().padStart(2, '0')
+    const minutes = thailandTime.getUTCMinutes().toString().padStart(2, '0')
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`
   } catch (error) {
     console.error("Error formatting raw time:", error)
     return "Error"
