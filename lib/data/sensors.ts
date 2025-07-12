@@ -197,7 +197,7 @@ export async function getSensors(filters: SensorFilters = {}): Promise<{ sensors
 
   // Generate mock sensors to continue from API data
   if (!mockSensors) {
-    mockSensors = generateMockSensors(50) // Reduced from 300 to 50
+    mockSensors = generateMockSensors(200) // Set to 200 mock sensors
   }
 
   // Combine real and mock sensors seamlessly
@@ -310,7 +310,7 @@ export async function getSensorReadings(sensorId: string, historical = false): P
   }
 
   if (!mockSensors) {
-    mockSensors = generateMockSensors(250)
+    mockSensors = generateMockSensors(200)
   }
 
   // Check in mock sensors
@@ -339,13 +339,13 @@ export async function getSensorReadings(sensorId: string, historical = false): P
   return sensor.readings
 }
 
-// Get summary data for dashboard
+  // Get summary data for dashboard
 export async function getSensorSummary(period: "daily" | "weekly" | "monthly"): Promise<SensorSummary> {
   // Fetch real sensors
   const realSensors = await fetchRealSensors()
 
   if (!mockSensors) {
-    mockSensors = generateMockSensors(250)
+    mockSensors = generateMockSensors(200)
   }
 
   // Combine real and mock sensors for summary
