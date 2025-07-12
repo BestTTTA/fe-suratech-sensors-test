@@ -87,3 +87,20 @@ export function getSignalStrengthLabel(rssi: number): string {
     default: return "Unknown"
   }
 }
+
+// Upload sensor image to API
+export async function uploadSensorImage(sensorId: string, imageFile: File): Promise<{ image_url: string; message: string; status: string }> {
+  const formData = new FormData()
+  formData.append('image', imageFile)
+
+  const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/image`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+
+  return await response.json()
+}

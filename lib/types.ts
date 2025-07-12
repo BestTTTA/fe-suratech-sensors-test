@@ -120,6 +120,7 @@ export interface Sensor {
   machine_number?: string | null
   installation_point?: string | null
   sensor_name?: string | null
+  image_url?: string | null
 }
 
 export interface Machine {

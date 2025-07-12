@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { formatRawTime } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatDate, getSignalStrength, getSignalStrengthLabel } from "@/lib/utils"
+import { formatDate, getSignalStrength, getSignalStrengthLabel, uploadSensorImage } from "@/lib/utils"
 import { Line } from "react-chartjs-2"
 import {
   Chart as ChartJS,
@@ -318,6 +318,9 @@ export default function SensorDetailPage() {
   const [configLoading, setConfigLoading] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
   const [configSuccess, setConfigSuccess] = useState<string | null>(null)
+  const [imageUploadLoading, setImageUploadLoading] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [configData, setConfigData] = useState({
     serialNumber: "",
     sensorName: "",
@@ -333,6 +336,7 @@ export default function SensorDetailPage() {
     thresholdMedium: "",
     thresholdMax: "",
     notes: "",
+    image_url: "",
     // Add axis direction configuration
     hAxisEnabled: true,
     vAxisEnabled: true,
@@ -395,7 +399,8 @@ export default function SensorDetailPage() {
         notes: configData.note || prev.notes,
         hAxisEnabled: configData.h_axis_enabled !== false, // Default to true if not specified
         vAxisEnabled: configData.v_axis_enabled !== false, // Default to true if not specified
-        aAxisEnabled: configData.a_axis_enabled !== false  // Default to true if not specified
+        aAxisEnabled: configData.a_axis_enabled !== false, // Default to true if not specified
+        image_url: configData.image_url || prev.image_url
       }))
       
       return configData
@@ -594,6 +599,7 @@ export default function SensorDetailPage() {
           threshold_medium: Number(configData.thresholdMedium) || 0,
           threshold_max: Number(configData.thresholdMax) || 0,
           note: configData.notes || "",
+          image_url: configData.image_url || "",
         }),
       })
 
@@ -623,6 +629,7 @@ export default function SensorDetailPage() {
         thresholdMedium: configData.thresholdMedium,
         thresholdMax: configData.thresholdMax,
         notes: configData.notes,
+        image_url: configData.image_url,
         hAxisEnabled: configData.hAxisEnabled,
         vAxisEnabled: configData.vAxisEnabled,
         aAxisEnabled: configData.aAxisEnabled
@@ -1016,7 +1023,12 @@ export default function SensorDetailPage() {
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex-shrink-0 flex justify-center">
                 <div className="w-24 h-24 bg-gray-700 rounded-md flex items-center justify-center">
-                  <div className="text-3xl text-gray-500">{(sensorLastData?.name || sensor.name).charAt(0)}</div>
+                {configData.image_url && (
+                        <img 
+                          src={configData.image_url} 
+                          alt="Sensor" 
+                        />
+                    )}
                 </div>
               </div>
 
@@ -1034,6 +1046,7 @@ export default function SensorDetailPage() {
                       Edit
                     </Button>
                   </div>
+                  
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Serial Number</span>
@@ -1625,6 +1638,91 @@ export default function SensorDetailPage() {
                     className="bg-gray-800 border-gray-700 text-white"
                     placeholder="Additional information"
                   />
+                </div>
+
+                {/* Image Upload Section */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-300">
+                    Sensor Image
+                  </Label>
+                  <div className="mt-2 space-y-3">
+                    {/* Current Image Display */}
+                    {configData.image_url && (
+                      <div className="flex items-center space-x-3">
+                        <img 
+                          src={configData.image_url} 
+                          alt="Sensor" 
+                          className="w-16 h-16 object-cover rounded border border-gray-600"
+                        />
+                        <span className="text-sm text-gray-400">Current image</span>
+                      </div>
+                    )}
+                    
+                    {/* Image Upload */}
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            setSelectedImage(file)
+                            // Create preview
+                            const reader = new FileReader()
+                            reader.onload = (e) => {
+                              setImagePreview(e.target?.result as string)
+                            }
+                            reader.readAsDataURL(file)
+                          }
+                        }}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <label
+                        htmlFor="image-upload"
+                        className="cursor-pointer bg-gray-800 border border-gray-700 text-white px-3 py-2 rounded text-sm hover:bg-gray-700"
+                      >
+                        Choose Image
+                      </label>
+                      {selectedImage && (
+                        <Button
+                          type="button"
+                          onClick={async () => {
+                            if (selectedImage) {
+                              setImageUploadLoading(true)
+                              try {
+                                const result = await uploadSensorImage(params.id, selectedImage)
+                                handleConfigChange('image_url', result.image_url)
+                                setSelectedImage(null)
+                                setImagePreview(null)
+                                setConfigSuccess('Image uploaded successfully!')
+                              } catch (error) {
+                                setConfigError('Failed to upload image')
+                              } finally {
+                                setImageUploadLoading(false)
+                              }
+                            }
+                          }}
+                          disabled={imageUploadLoading}
+                          className="bg-blue-600 hover:bg-blue-700 text-sm"
+                        >
+                          {imageUploadLoading ? "Uploading..." : "Upload"}
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {/* Image Preview */}
+                    {imagePreview && (
+                      <div className="flex items-center space-x-3">
+                        <img 
+                          src={imagePreview} 
+                          alt="Preview" 
+                          className="w-16 h-16 object-cover rounded border border-gray-600"
+                        />
+                        <span className="text-sm text-gray-400">Preview</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
               </div>
