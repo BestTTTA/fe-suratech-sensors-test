@@ -80,17 +80,6 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
     }
   };
 
-  const getWifiColor = () => {
-    switch (safeConnectivity) {
-      case "online":
-        return "bg-green-500";
-      case "offline":
-        return "bg-gray-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
   const getSignalColor = (rssi: number) => {
     const level = getSignalStrength(rssi);
     switch (level) {
@@ -109,28 +98,14 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
     }
   };
 
-  const formatDateTime = (timestamp: number) => {
-    try {
-      return new Date(timestamp)
-        .toLocaleString("en-GB", {
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        })
-        .replace(",", "");
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return "Invalid date";
-    }
-  };
-
   const formatDisplayTime = () => {
-    if (sensor.last_data && sensor.last_data.datetime) {
-      return formatRawTime(sensor.last_data.datetime);
+    if (sensor?.last_data?.datetime) {
+      // return formatRawTime(sensor.last_data.datetime);
+      //DD-MM-YYYY HH:MM
+      return `${sensor.last_data.datetime.split('T')[0].split('-').reverse().join('/')} ${sensor.last_data.datetime.split('T')[1].split('Z')[0]}`
     }
-    return formatDateTime(displayLastUpdated);
+    // Fallback to lastUpdated if no datetime in last_data
+    return formatRawTime(new Date(safeLastUpdated).toISOString());
   };
 
   return (

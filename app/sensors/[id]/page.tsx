@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { formatRawTime } from "@/lib/utils"
+import { formatThaiDate } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { formatDate, getSignalStrength, getSignalStrengthLabel, uploadSensorImage } from "@/lib/utils"
@@ -940,7 +940,7 @@ export default function SensorDetailPage() {
                 <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-900 text-blue-300">Live Data</span>
               )}
             </p>
-            <p className="text-sm text-gray-500">Last updated: {formatRawTime(currentData.datetime)}</p>
+            <p className="text-sm text-gray-500">Last updated: {formatThaiDate(currentData.datetime)}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1117,7 +1117,7 @@ export default function SensorDetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Last Updated</span>
-                      <span>{formatRawTime(currentData.datetime)}</span>
+                      <span>{formatThaiDate(currentData.datetime)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Installation Date</span>

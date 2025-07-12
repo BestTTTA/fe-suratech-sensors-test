@@ -36,28 +36,26 @@ export function formatDate(dateString: string, includeTime = false): string {
   }
 }
 
+export function formatThaiDate(dateString: string): string {
+  return `${dateString.split('T')[0].split('-').reverse().join('/')} ${dateString.split('T')[1].split('Z')[0]}`
+}
+
 export function formatRawTime(dateString: string): string {
-  if (!dateString) return "N/A"
+  if (!dateString) return "N/A";
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) {
-      return "Invalid date"
-    }
-    
-    // Convert to Thailand time (UTC+7)
-    const thailandTime = new Date(date.getTime() + (7 * 60 * 60 * 1000))
-    
-    // Format as DD/MM/YYYY HH:MM (Thailand format, 24-hour)
-    const day = thailandTime.getUTCDate().toString().padStart(2, '0')
-    const month = (thailandTime.getUTCMonth() + 1).toString().padStart(2, '0')
-    const year = thailandTime.getUTCFullYear()
-    const hours = thailandTime.getUTCHours().toString().padStart(2, '0')
-    const minutes = thailandTime.getUTCMinutes().toString().padStart(2, '0')
-    
-    return `${day}/${month}/${year} ${hours}:${minutes}`
+    // Always parse as UTC, then add 7 hours for Thailand time
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Invalid date";
+    const thailandTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+    const day = thailandTime.getUTCDate().toString().padStart(2, '0');
+    const month = (thailandTime.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = thailandTime.getUTCFullYear();
+    const hours = thailandTime.getUTCHours().toString().padStart(2, '0');
+    const minutes = thailandTime.getUTCMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   } catch (error) {
-    console.error("Error formatting raw time:", error)
-    return "Error"
+    console.error("Error formatting raw time:", error);
+    return "Error";
   }
 }
 
