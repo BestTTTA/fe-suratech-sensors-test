@@ -1219,7 +1219,7 @@ export default function SensorDetailPage() {
             
             {/* Conditionally show H-axis card */}
             {configData.hAxisEnabled && (
-              <Card className={`border-gray-800 bg-[#ff0000]
+              <Card className={`border-gray-800 
               ${getCardBackgroundColorCallback(parseFloat(xStats.velocityTopPeak))}`}>
                 <CardContent className="p-4">
                   <h3 className=" mb-2">Horizontal (H)</h3>
