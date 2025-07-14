@@ -25,6 +25,9 @@ const config: Config = {
     '!bg-red-900',
     '!bg-red-600',
     'bg-gray-400', // for offline status
+	'bg-[#ffff00]',
+	'bg-[#ff6600]',
+	'bg-[#ff0000]',
   ],
   theme: {
   	extend: {
