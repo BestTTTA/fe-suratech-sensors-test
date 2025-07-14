@@ -31,9 +31,7 @@ import {
   accelerationToVelocity, 
   calculateFFT, 
   getAxisTopPeakStats,
-  getAxisStats,
   calculateVibrationStats,
-  SENSOR_CONSTANTS,
   handlingWindowFunction,
   findTopPeaks
 } from "@/lib/utils/sensorCalculations"
@@ -701,7 +699,48 @@ export default function SensorDetailPage() {
     }
   }, [sensorLastData])
 
-  // ฟังก์ชันเตรียมข้อมูลสำหรับกราฟ
+  // Pre-calculate all chart data for all axes and units
+  const allChartData = useMemo(() => {
+    if (
+      !sensorLastData?.data ||
+      !Array.isArray(sensorLastData.data.h) ||
+      !Array.isArray(sensorLastData.data.v) ||
+      !Array.isArray(sensorLastData.data.a) ||
+      sensorLastData.data.h.length === 0
+    ) {
+      return {
+        hasData: false,
+        h: {},
+        v: {},
+        a: {}
+      }
+    }
+
+    const totalTime = configData.lor / configData.fmax;
+    const timeInterval = totalTime / (sensorLastData.data.h.length - 1);
+
+    // Calculate data for all axes
+    const axes = {
+      h: sensorLastData.data.h,
+      v: sensorLastData.data.v,
+      a: sensorLastData.data.a
+    };
+
+    const units = ["Acceleration (G)", "Acceleration (mm/s²)", "Velocity (mm/s)"];
+    const result: any = { hasData: true };
+
+    // Pre-calculate for all combinations of axes and units
+    Object.entries(axes).forEach(([axisKey, axisData]) => {
+      result[axisKey] = {};
+      units.forEach(unit => {
+        result[axisKey][unit] = prepareChartData(axisData, unit, timeInterval, configData);
+      });
+    });
+
+    return result;
+  }, [sensorLastData?.data, configData]);
+
+  // Get current selected data
   const prepareVibrationData = useCallback((): {
     hasData: boolean;
     timeData: any | null;
@@ -712,14 +751,7 @@ export default function SensorDetailPage() {
     peakToPeakValue?: string;
     topPeaks?: { peak: number; rms: string; frequency: string }[];
   } => {
-    // ตรวจสอบว่ามีข้อมูลการสั่นสะเทือนจริงหรือไม่
-    if (
-      !sensorLastData?.data ||
-      !Array.isArray(sensorLastData.data.h) ||
-      !Array.isArray(sensorLastData.data.v) ||
-      !Array.isArray(sensorLastData.data.a) ||
-      sensorLastData.data.h.length === 0
-    ) {
+    if (!allChartData.hasData) {
       return {
         hasData: false,
         timeData: null,
@@ -727,26 +759,17 @@ export default function SensorDetailPage() {
       }
     }
 
-    // เลือกข้อมูลตามแกนที่เลือก
-    const rawAxisData =
-      selectedAxis === "H-axis"
-        ? sensorLastData.data.h
-        : selectedAxis === "V-axis"
-          ? sensorLastData.data.v
-          : sensorLastData.data.a
+    // Map axis selection to data key
+    const axisKey = selectedAxis === "H-axis" ? "h" : 
+                   selectedAxis === "V-axis" ? "v" : "a";
 
-    // คำนวณช่วงเวลาตาม LOR และ fmax
-    const totalTime = configData.lor / configData.fmax;
-    const timeInterval = totalTime / (rawAxisData.length - 1);
-
-    // เตรียมข้อมูลสำหรับกราฟ
-    const chartData = prepareChartData(rawAxisData, selectedUnit, timeInterval, configData)
+    const selectedData = allChartData[axisKey][selectedUnit];
 
     return {
       hasData: true,
-      ...chartData,
+      ...selectedData,
     }
-  }, [sensorLastData?.data, selectedAxis, selectedUnit, configData])
+  }, [allChartData, selectedAxis, selectedUnit])
 
   // Use real data if available, otherwise use sensor data or fallback
   const currentData = sensorLastData?.data || {
@@ -769,24 +792,69 @@ export default function SensorDetailPage() {
     return prepareVibrationData();
   }, [prepareVibrationData, loading, sensorLastData])
 
-  // Prepare stats for each axis
-  const totalTime = configData.lor / configData.fmax;
-  const timeInterval = totalTime / (sensorLastData?.data?.h?.length ? sensorLastData.data.h.length - 1 : 1);
+  // Extract axis stats from pre-calculated data
   const xStats = useMemo(() => {
-    if (loading || !sensorLastData?.data?.h) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.h, timeInterval, configData.g_scale, configData.fmax);
-  }, [sensorLastData?.data?.h, timeInterval, loading, configData.g_scale, configData.lor, configData.fmax]);
+    if (loading || !allChartData.hasData) return { 
+      accelTopPeak: "0.000", 
+      velocityTopPeak: "0.000", 
+      dominantFreq: "0.000",
+      topPeaks: { G: [], mmPerS2: [], mmPerS: [] }
+    };
+    
+    const hData = allChartData.h;
+    return {
+      accelTopPeak: hData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      velocityTopPeak: hData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      dominantFreq: hData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
+      topPeaks: {
+        G: hData["Acceleration (G)"]?.topPeaks || [],
+        mmPerS2: hData["Acceleration (mm/s²)"]?.topPeaks || [],
+        mmPerS: hData["Velocity (mm/s)"]?.topPeaks || []
+      }
+    };
+  }, [allChartData, loading]);
   
   const yStats = useMemo(() => {
-    if (loading || !sensorLastData?.data?.v) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
+    if (loading || !allChartData.hasData) return { 
+      accelTopPeak: "0.000", 
+      velocityTopPeak: "0.000", 
+      dominantFreq: "0.000",
+      topPeaks: { G: [], mmPerS2: [], mmPerS: [] }
+    };
     
-    return getAxisTopPeakStats(sensorLastData.data.v, timeInterval, configData.g_scale, configData.fmax);
-  }, [sensorLastData?.data?.v, timeInterval, loading, configData.g_scale, configData.lor, configData.fmax]);
+    const vData = allChartData.v;
+    return {
+      accelTopPeak: vData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      velocityTopPeak: vData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      dominantFreq: vData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
+      topPeaks: {
+        G: vData["Acceleration (G)"]?.topPeaks || [],
+        mmPerS2: vData["Acceleration (mm/s²)"]?.topPeaks || [],
+        mmPerS: vData["Velocity (mm/s)"]?.topPeaks || []
+      }
+    };
+  }, [allChartData, loading]);
   
   const zStats = useMemo(() => {
-    if (loading || !sensorLastData?.data?.a) return { accelTopPeak: "0.000", velocityTopPeak: "0.000", dominantFreq: "0.000" };
-    return getAxisTopPeakStats(sensorLastData.data.a, timeInterval, configData.g_scale, configData.fmax);
-  }, [sensorLastData?.data?.a, timeInterval, loading, configData.g_scale, configData.lor, configData.fmax]);
+    if (loading || !allChartData.hasData) return { 
+      accelTopPeak: "0.000", 
+      velocityTopPeak: "0.000", 
+      dominantFreq: "0.000",
+      topPeaks: { G: [], mmPerS2: [], mmPerS: [] }
+    };
+    
+    const aData = allChartData.a;
+    return {
+      accelTopPeak: aData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      velocityTopPeak: aData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      dominantFreq: aData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
+      topPeaks: {
+        G: aData["Acceleration (G)"]?.topPeaks || [],
+        mmPerS2: aData["Acceleration (mm/s²)"]?.topPeaks || [],
+        mmPerS: aData["Velocity (mm/s)"]?.topPeaks || []
+      }
+    };
+  }, [allChartData, loading]);
 
   // Summary log for all axes when data changes
   useEffect(() => {
