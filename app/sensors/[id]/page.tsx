@@ -234,12 +234,12 @@ function prepareChartData(
   
   if (selectedUnit === "Acceleration (G)") {
     // For Acceleration (G), use the same FFT magnitude data as getAxisTopPeakStats
-    const { topPeaks: fftPeaks, pointBackgroundColor: fftColors } = findTopPeaks(freqMagnitude, freqLabels, 5)
+    const { topPeaks: fftPeaks, pointBackgroundColor: fftColors } = findTopPeaks(freqMagnitude, freqLabels, configData.lor, 5)
     topPeaks = fftPeaks
     pointBackgroundColor = fftColors
   } else {
     // For other units, use the processed magnitude data
-    const { topPeaks: processedPeaks, pointBackgroundColor: processedColors } = findTopPeaks(freqMagnitude, freqLabels, 5)
+    const { topPeaks: processedPeaks, pointBackgroundColor: processedColors } = findTopPeaks(freqMagnitude, freqLabels, configData.lor, 5)
     topPeaks = processedPeaks
     pointBackgroundColor = processedColors
   }

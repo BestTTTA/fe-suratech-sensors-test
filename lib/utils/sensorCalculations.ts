@@ -631,6 +631,7 @@ export function getAxisStats(axisData: number[], timeInterval: number) {
 export function findTopPeaks(
   freqMagnitude: number[], 
   freqLabels: string[], 
+  lor: number,
   maxPeaks: number = 5
 ): { 
   topPeaks: { peak: number; rms: string; frequency: string }[];
@@ -641,9 +642,10 @@ export function findTopPeaks(
   let topPeaks: { peak: number; rms: string; frequency: string }[] = []
 
   // ===== PEAK DETECTION =====
+  //not over freqMax
   if (freqMagnitude.length > 0) {
     let topIndices = []
-    for (let i = 1; i < freqMagnitude.length - 1; i++) {
+    for (let i = 1; i < lor - 1 ; i++) {
       if (freqMagnitude[i] > freqMagnitude[i - 1] && freqMagnitude[i] > freqMagnitude[i + 1]) {
         topIndices.push(i)
       }
