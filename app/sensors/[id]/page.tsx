@@ -1243,7 +1243,7 @@ export default function SensorDetailPage() {
             
             {/* Conditionally show V-axis card */}
             {configData.vAxisEnabled && (
-              <Card className={`border-gray-800 bg-[#ffff00]
+              <Card className={`border-gray-800
               ${getCardBackgroundColorCallback(parseFloat(yStats.velocityTopPeak))}`}>
                 {/* {getCardBackgroundColorCallback(parseFloat(yStats.velocityTopPeak))} */}
                 <CardContent className="p-4">
