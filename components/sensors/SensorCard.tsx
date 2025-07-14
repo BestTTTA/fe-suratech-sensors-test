@@ -84,25 +84,44 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
     const level = getSignalStrength(rssi);
     switch (level) {
       case 0:
-        return "bg-gray-500"; // No signal
+        return "text-gray-500"; // No signal
       case 1:
-        return "bg-red-500"; // Weak
+        return "text-red-500"; // Weak
       case 2:
-        return "bg-yellow-500"; // Fair
+        return "text-yellow-500"; // Fair
       case 3:
-        return "bg-blue-500"; // Good
+        return "text-blue-500"; // Good
       case 4:
-        return "bg-green-500"; // Excellent
+        return "text-green-500"; // Excellent
       default:
-        return "bg-gray-500";
+        return "text-gray-500";
     }
+  };
+
+  const WifiSignal = ({ signalLevel }: { signalLevel: number }) => {
+    const bars = [];
+    for (let i = 1; i <= 4; i++) {
+      bars.push(
+        <div
+          key={i}
+          className={`w-1 rounded-sm ${
+            i <= signalLevel ? getSignalColor(sensor?.signalStrength || 0) : "text-gray-300"
+          }`}
+          style={{
+            height: `${i * 2}px`,
+            backgroundColor: i <= signalLevel ? "currentColor" : "#d1d5db"
+          }}
+        />
+      );
+    }
+    return <div className="flex items-end gap-0.5 h-4">{bars}</div>;
   };
 
   const formatDisplayTime = () => {
     if (sensor?.last_data?.datetime) {
       // return formatRawTime(sensor.last_data.datetime);
       //DD-MM-YYYY HH:MM
-      return `${sensor.last_data.datetime.split('T')[0].split('-').reverse().join('/')} ${sensor.last_data.datetime.split('T')[1].split('Z')[0]}`
+      return `${sensor.last_data.datetime.split('T')[0].split('-').reverse().join('/')} ${sensor.last_data.datetime.split('T')[1].split('Z')[0].split(':').slice(0, 2).join(':')}`
     }
     // Fallback to lastUpdated if no datetime in last_data
     return formatRawTime(new Date(safeLastUpdated).toISOString());
@@ -215,16 +234,9 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
               <Battery className="h-3 w-3 text-white fill-current" />
             </div>
 
-            {/* WiFi Icon with RSSI */}
-            <div
-              className={`flex flex-col items-center justify-center w-6 h-4 ${getSignalColor(
-                sensor?.signalStrength || 0
-              )} rounded`}
-            >
-              <Wifi className="h-2 w-2 text-white" />
-              <span className="text-xs text-white">
-                {getSignalStrength(sensor?.signalStrength || 0)}
-              </span>
+            {/* WiFi Signal Bars */}
+            <div className="flex flex-col items-center justify-center w-6 h-4">
+              <WifiSignal signalLevel={getSignalStrength(sensor?.signalStrength || 0)} />
             </div>
           </div>
 

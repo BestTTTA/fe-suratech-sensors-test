@@ -21,7 +21,7 @@ const formSchema = z.object({
     .string()
     .min(3, { message: "Machine name must be at least 3 characters" })
     .max(50, { message: "Machine name must be less than 50 characters" }),
-  type: z.string({ required_error: "Please select a machine type" }),
+  type: z.string().min(1, { message: "Please select a machine type" }),
   location: z.string().min(3, { message: "Location must be at least 3 characters" }),
   manufacturer: z.string().optional(),
   model: z.string().optional(),

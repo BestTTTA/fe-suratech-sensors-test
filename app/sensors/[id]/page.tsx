@@ -1570,7 +1570,7 @@ export default function SensorDetailPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label htmlFor="thresholdMin" className="text-sm font-medium text-gray-300">
-                      Warning Threshold
+                      Warning Threshold (mm/s) 
                     </Label>
                     <Input
                       id="thresholdMin"
@@ -1584,7 +1584,7 @@ export default function SensorDetailPage() {
                   </div>
                   <div>
                     <Label htmlFor="thresholdMedium" className="text-sm font-medium text-gray-300">
-                      Concern Threshold
+                      Concern Threshold (mm/s)
                     </Label>
                     <Input
                       id="thresholdMedium"
@@ -1598,7 +1598,7 @@ export default function SensorDetailPage() {
                   </div>
                   <div>
                     <Label htmlFor="thresholdMax" className="text-sm font-medium text-gray-300">
-                      Damage Threshold
+                      Damage Threshold (mm/s)
                     </Label>
                     <Input
                       id="thresholdMax"
