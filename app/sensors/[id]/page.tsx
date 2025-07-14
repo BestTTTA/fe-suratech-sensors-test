@@ -243,9 +243,10 @@ function prepareChartData(
     topPeaks = processedPeaks
     pointBackgroundColor = processedColors
   }
-
+  //freqLabels not over lor - 1 * (deltaF)
+  const indexOfMaxFreq = freqLabels.indexOf(((configData?.lor - 1) * deltaF).toString());
   const freqChartData = {
-    labels: freqLabels,
+    labels: freqLabels.slice(0, indexOfMaxFreq),
     datasets: [
       {
         label: `${yAxisLabel} Magnitude`,
