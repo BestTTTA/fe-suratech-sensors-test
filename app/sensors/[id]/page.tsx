@@ -225,7 +225,7 @@ function prepareChartData(
   // Remove zero frequency (DC component)
   const freqMagnitude = magnitude.slice(3)
   // array of number start with 0 end with 4096
-  const freqLabels = Array.from({ length: freqMagnitude.length }, (_, i) => i * deltaF).map(label => label.toFixed(2)).slice(3)
+  const freqLabels = Array.from({ length: freqMagnitude.length }, (_, i) => i * deltaF).map(label => label.toFixed(4)).slice(3)
 
   // Use findTopPeaks function for consistent peak detection
   // For Acceleration (G), ensure we're using the same data as Horizontal (H) card
@@ -243,8 +243,9 @@ function prepareChartData(
     topPeaks = processedPeaks
     pointBackgroundColor = processedColors
   }
-  //freqLabels not over lor - 1 * (deltaF)
-  const indexOfMaxFreq = freqLabels.indexOf(((configData?.lor - 1) * deltaF).toString());
+  //freqLabels not over lor * (deltaF)
+  // find index of freqLabels that is over lor  * (deltaF)
+  const indexOfMaxFreq = freqLabels.findIndex(label => parseFloat(label) > (configData.lor) * deltaF)
   const freqChartData = {
     labels: freqLabels.slice(0, indexOfMaxFreq),
     datasets: [
