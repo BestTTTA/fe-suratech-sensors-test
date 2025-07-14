@@ -1152,19 +1152,19 @@ export default function SensorDetailPage() {
             {configData.hAxisEnabled && (
               <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(xStats.velocityTopPeak))}`}>
                 <CardContent className="p-4">
-                  <h3 className="text-white mb-2">Horizontal (H)</h3>
+                  <h3 className=" mb-2">Horizontal (H)</h3>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="">Acceleration</span>
-                      <span className="text-right text-white">{xStats.accelTopPeak}G</span>
+                      <span className="text-right ">{xStats.accelTopPeak}G</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Velocity</span>
-                      <span className="text-right text-white">{xStats.velocityTopPeak} mm/s</span>
+                      <span className="text-right ">{xStats.velocityTopPeak} mm/s</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Dominant Frequency</span>
-                      <span className="text-right text-white">{xStats.dominantFreq} Hz</span>
+                      <span className="text-right ">{xStats.dominantFreq} Hz</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1174,20 +1174,21 @@ export default function SensorDetailPage() {
             {/* Conditionally show V-axis card */}
             {configData.vAxisEnabled && (
               <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(yStats.velocityTopPeak))}`}>
+                {/* {getCardBackgroundColorCallback(parseFloat(yStats.velocityTopPeak))} */}
                 <CardContent className="p-4">
-                  <h3 className="text-white mb-2">Vertical (V)</h3>
+                  <h3 className=" mb-2">Vertical (V)</h3>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="">Acceleration</span>
-                      <span className="text-right text-white">{yStats.accelTopPeak}G</span>
+                      <span className="text-right">{yStats.accelTopPeak}G</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Velocity</span>
-                      <span className="text-right text-white">{yStats.velocityTopPeak} mm/s</span>
+                      <span className="text-right">{yStats.velocityTopPeak} mm/s</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Dominant Frequency</span>
-                      <span className="text-right text-white">{yStats.dominantFreq} Hz</span>
+                      <span className="text-right ">{yStats.dominantFreq} Hz</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1198,19 +1199,19 @@ export default function SensorDetailPage() {
             {configData.aAxisEnabled && (
               <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(zStats.velocityTopPeak))}`}>
                 <CardContent className="p-4">
-                  <h3 className="text-white mb-2">Axial (A)</h3>
+                  <h3 className="mb-2">Axial (A)</h3>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="">Acceleration</span>
-                      <span className="text-right text-white">{zStats.accelTopPeak}G</span>
+                      <span className="text-right ">{zStats.accelTopPeak}G</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Velocity</span>
-                      <span className="text-right text-white">{zStats.velocityTopPeak} mm/s</span>
+                      <span className="text-right ">{zStats.velocityTopPeak} mm/s</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Dominant Frequency</span>
-                      <span className="text-right text-white">{zStats.dominantFreq} Hz</span>
+                      <span className="text-right ">{zStats.dominantFreq} Hz</span>
                     </div>
                   </div>
                 </CardContent>

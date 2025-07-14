@@ -83,33 +83,37 @@ export function getVibrationColor(
     return 'bg-gray-400'
   }
 
+// เหลือง = [#ffff00]
+// ส้ม = [#ff6600]
+// แดง = [#ff0000]
+
   const colorMap = {
     dark: {
-      normal: 'bg-green-900',
-      warning: 'bg-yellow-600',
-      concern: 'bg-orange-900',
-      critical: 'bg-red-900'
+      normal: 'bg-green-900 text-white',
+      warning: 'bg-[#ffff00] text-black',
+      concern: 'bg-[#ff6600] text-white',
+      critical: 'bg-[#ff0000] text-white'
     },
     light: {
-      normal: 'bg-green-500',
-      warning: 'bg-yellow-600',
-      concern: 'bg-orange-500',
-      critical: 'bg-red-500'
+      normal: 'bg-green-500 text-white',
+      warning: 'bg-[#ffff00] text-black',
+      concern: 'bg-[#ff6600] text-white',
+      critical: 'bg-[#ff0000] text-white'
     },
     card: {
-      normal: 'bg-green-900',
-      warning: 'bg-yellow-600',
-      concern: 'bg-orange-900',
-      critical: 'bg-red-900'
+      normal: 'bg-green-900 text-white',
+      warning: 'bg-[#ffff00] text-black',
+      concern: 'bg-[#ff6600] text-white',
+      critical: 'bg-[#ff0000] text-white'
     }
   }
 
   const color = colorMap[scheme][level] || colorMap[scheme].normal
   
   // Add !important for card scheme to override default card background
-  if (scheme === 'card') {
-    return color.replace('bg-', '!bg-')
-  }
+  // if (scheme === 'card') {
+  //   return color.replace('bg-', '!bg-')
+  // }
   
   return color
 }
