@@ -55,6 +55,8 @@ export default function SensorCard({ sensor, onClick }: SensorCardProps) {
   const displayVibrationV = getSensorAxisVibrationColor(sensor, "v", "light");
   const displayVibrationA = getSensorAxisVibrationColor(sensor, "a", "light");
 
+  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "running":

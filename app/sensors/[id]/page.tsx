@@ -1219,6 +1219,10 @@ export default function SensorDetailPage() {
             </Card>
             
             {/* Conditionally show H-axis card */}
+            {/* <div className="bg-green-500"> Mock color</div>
+            <div className="bg-[#ffff00]"> Mock color</div>
+            <div className="bg-[#ff0000]"> Mock color</div>
+            <div className="bg-[#ff6600]"> Mock color</div> */}
             {configData.hAxisEnabled && (
               <Card className={`border-gray-800 
               ${getCardBackgroundColorCallback(parseFloat(xStats.velocityTopPeak))}`}>

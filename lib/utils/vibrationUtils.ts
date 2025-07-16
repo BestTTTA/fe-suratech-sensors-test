@@ -116,9 +116,9 @@ export function getVibrationColor(
   const color = colorMap[scheme][level] || colorMap[scheme].normal;
 
   // Add !important for card scheme to override default card background
-  if (scheme === "card") {
-    return color.replace("bg-", "!bg-");
-  }
+  // if (scheme === "card") {
+  //   return color.replace("bg-", "!bg-");
+  // }
 
   return color;
 }
@@ -223,6 +223,10 @@ export function getSensorAxisVibrationColor(
             : 0.15,
         machineClass: sensor.machine_class || undefined,
       };
+
+      if(sensor.sensor_name == 'D02') {
+        console.log(velocityValue);
+      }
 
       return getVibrationColorFromVelocity(
         velocityValue,
