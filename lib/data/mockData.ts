@@ -158,7 +158,7 @@ export function generateMockSensors(count: number): Sensor[] {
       vibrationV:  "normal",
       vibrationA: "normal",
       last_data: {
-        temperature: 30,
+        temperature: 0,
         vibrationX: 10,
         vibrationY: 10,
         vibrationZ: 10,
