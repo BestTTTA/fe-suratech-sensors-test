@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { LayoutDashboardIcon, PlusCircle, RefreshCw } from "lucide-react"
 import { getSensors } from "@/lib/data/sensors"
-import { formatDate, formatRawTime } from "@/lib/utils"
+import { formatDate, formatRawTime, formatThaiDate } from "@/lib/utils"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 
 export default function SensorsPage() {
@@ -31,6 +31,10 @@ export default function SensorsPage() {
     }
   }, [])
 
+  const getBangkokTime = () => {
+    return new Date(new Date().getTime() + 7 * 60 * 60 * 1000)
+  }
+
   const updateSensorData = useCallback(async () => {
     setIsRefreshing(true)
     try {
@@ -38,7 +42,8 @@ export default function SensorsPage() {
       if (window.refreshSensorData) {
         await window.refreshSensorData()
       }
-      setLastUpdated(new Date())
+      //bangkok time
+      setLastUpdated(getBangkokTime())
     } finally {
       setIsRefreshing(false)
     }
@@ -55,7 +60,7 @@ export default function SensorsPage() {
   useEffect(() => {
     if (!hasInitiallyLoaded.current) {
       fetchTotalSensors()
-      setLastUpdated(new Date())
+      setLastUpdated(getBangkokTime())
       hasInitiallyLoaded.current = true
     }
   }, [fetchTotalSensors])
@@ -78,10 +83,10 @@ export default function SensorsPage() {
 
   // Format date/time in Thailand time zone using utility
   const currentDateTime = formatDate(new Date().toISOString(), true)
-  const lastUpdatedTime = formatRawTime(lastUpdated.toISOString())
+  const lastUpdatedTime = lastUpdated.toISOString()
 
   const renderCurrentView = () => {
-    const commonProps = { onRefresh: () => setLastUpdated(new Date()) }
+    const commonProps = { onRefresh: () => setLastUpdated(getBangkokTime()) }
     switch (currentView) {
       case "grid":
         return <SensorGrid {...commonProps} />
@@ -116,7 +121,7 @@ export default function SensorsPage() {
               {isRefreshing ? "Updating..." : "Refresh Now"}
             </Button>
 
-            <div className="text-sm text-gray-400">Last updated: {formatRawTime(lastUpdatedTime)}</div>
+            <div className="text-sm text-gray-400">Last updated: {formatThaiDate(lastUpdatedTime)}</div>
           </div>
           <div className="flex gap-2">
             <ViewSelector currentView={currentView} onViewChange={handleViewChange} />

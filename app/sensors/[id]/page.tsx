@@ -138,13 +138,13 @@ function prepareChartData(
 
   if (selectedUnit === "Acceleration (G)") {
     processedData = gData
-    yAxisLabel = "G"
+    yAxisLabel = "Acceleration (G)"
   } else if (selectedUnit === "Acceleration (mm/s²)") {
     processedData = mmPerSecSquaredData
-    yAxisLabel = "mm/s²"
+    yAxisLabel = "Acceleration (rms, mm/s²)"
   } else {
     processedData = velocityData
-    yAxisLabel = "mm/s"
+    yAxisLabel = "Velocity (rms, mm/s)"
   }
 
   // ===== OVERALL STATISTICS CALCULATION =====
@@ -200,7 +200,7 @@ function prepareChartData(
     const emptyFreqData = {
       labels: [],
       datasets: [{
-        label: `${yAxisLabel} Magnitude`,
+        label: `${yAxisLabel}`,
         data: [],
         borderColor: "rgb(75, 192, 192)",
         backgroundColor: "rgba(75, 192, 192, 0.1)",
