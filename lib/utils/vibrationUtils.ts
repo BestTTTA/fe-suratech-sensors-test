@@ -224,9 +224,9 @@ export function getSensorAxisVibrationColor(
         machineClass: sensor.machine_class || undefined,
       };
 
-      if(sensor.sensor_name == 'D02') {
-        console.log(velocityValue);
-      }
+      // if(sensor.sensor_name == 'D02') {
+      //   console.log(velocityValue);
+      // }
 
       return getVibrationColorFromVelocity(
         velocityValue,
