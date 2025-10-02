@@ -27,9 +27,9 @@ export async function GET(request: NextRequest) {
     
     // ไปยังหน้าที่ต้องการแคป
     const targetUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-    console.log(`Navigating to ${targetUrl}/dashboard`)
-    
-    await page.goto(`${targetUrl}/dashboard`, { 
+    console.log(`Navigating to ${targetUrl}`)
+
+    await page.goto(targetUrl, {
       waitUntil: 'networkidle0',
       timeout: 30000
     })
