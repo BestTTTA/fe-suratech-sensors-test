@@ -19,6 +19,7 @@ let mockSensors: Sensor[] | null = null;
 let realSensorsCache: Sensor[] | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 30000; // 30 seconds cache
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"
 
 // Function to fetch real sensors from API
 async function fetchRealSensors(): Promise<Sensor[]> {
@@ -30,7 +31,7 @@ async function fetchRealSensors(): Promise<Sensor[]> {
 
   try {
     const response = await fetch(
-      "https://sc.promptlabai.com/suratech/sensors/with-last-data",
+      `${API_BASE_URL}/suratech/sensors/with-last-data`,
       {
         cache: "no-store", // Disable caching for real-time data
         headers: {

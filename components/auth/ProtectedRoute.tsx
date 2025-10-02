@@ -13,11 +13,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push('/login')
-    }
-  }, [isAuthenticated, loading, router])
+  // useEffect(() => {
+  //   if (!loading && !isAuthenticated) {
+  //     router.push('/login')
+  //   }
+  // }, [isAuthenticated, loading, router])
 
   // Show loading while checking authentication
   if (loading) {
@@ -32,8 +32,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // Don't render anything if not authenticated (will redirect)
-  if (!isAuthenticated) {
-    return null
-  }
+  // if (!isAuthenticated) {
+  //   return null
+  // }
   return <>{children}</>
 } 

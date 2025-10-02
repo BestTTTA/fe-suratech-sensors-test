@@ -343,10 +343,12 @@ export default function SensorDetailPage() {
     aAxisEnabled: true
   })
 
+  const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+
   // ฟังก์ชันดึงข้อมูลล่าสุดจากเซ็นเซอร์
   const fetchSensorLastData = async (sensorId: string) => {
     try {
-      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/last-data`, {
+      const response = await fetch(`${BASE_API_URL}/sensors/${sensorId}/last-data`, {
         cache: "no-store",
         headers: {
           "Cache-Control": "no-cache",
@@ -659,6 +661,7 @@ export default function SensorDetailPage() {
 
   // Use utility function for card background color - use configData for threveold values
   const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
+    console.log("Calculating card background color with velocity:", velocityValue)
     // Use configData for threshold values since we fetch complete config from API
     // Use the same fallback logic as the main page for consistency
     
@@ -1224,8 +1227,7 @@ export default function SensorDetailPage() {
             <div className="bg-[#ff0000]"> Mock color</div>
             <div className="bg-[#ff6600]"> Mock color</div> */}
             {configData.hAxisEnabled && (
-              <Card className={`border-gray-800 
-              ${getCardBackgroundColorCallback(parseFloat(xStats.velocityTopPeak))}`}>
+              <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(xStats.velocityTopPeak))}`}>
                 <CardContent className="p-4">
                   <h3 className=" mb-2">Horizontal (H)</h3>
                   <div className="space-y-1 text-sm">

@@ -86,12 +86,13 @@ export function getSignalStrengthLabel(rssi: number): string {
   }
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"
 // Upload sensor image to API
 export async function uploadSensorImage(sensorId: string, imageFile: File): Promise<{ image_url: string; message: string; status: string }> {
   const formData = new FormData()
   formData.append('image', imageFile)
 
-  const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/image`, {
+  const response = await fetch(`${API_BASE_URL}/suratech/sensors/${sensorId}/image`, {
     method: 'POST',
     body: formData,
   })

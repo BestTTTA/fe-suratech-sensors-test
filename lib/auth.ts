@@ -1,6 +1,7 @@
 import { User, AuthResponse, RegisterRequest, LoginRequest, AuthError } from './types'
 
-const API_BASE_URL = 'https://sc.promptlabai.com/suratech' 
+const API_BASE_URL = 'https://sc.promptlabai.com/suratech'
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000' 
 
 // Token management
 export const getToken = (): string | null => {

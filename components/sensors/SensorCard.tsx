@@ -13,6 +13,7 @@ interface SensorCardProps {
 }
 
 export default function SensorCard({ sensor, onClick }: SensorCardProps) {
+  console.log("sensor logs:", sensor);
   // Always show all axes for main page (no config API call needed)
   const axisConfig = {
     hAxisEnabled: true,

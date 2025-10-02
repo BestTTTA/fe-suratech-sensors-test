@@ -83,7 +83,7 @@ export function getVibrationColor(
   scheme: ColorScheme = "light",
   isOffline: boolean = false
 ): string {
-  // If sensor is offline, return gray color
+
   if (isOffline) {
     return "bg-gray-400";
   }
@@ -114,6 +114,7 @@ export function getVibrationColor(
   };
 
   const color = colorMap[scheme][level] || colorMap[scheme].normal;
+  console.log("VibrationColor: ", color);
 
   // Add !important for card scheme to override default card background
   // if (scheme === "card") {

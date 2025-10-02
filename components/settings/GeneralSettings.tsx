@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
+import { CheckCircle2, XCircle } from "lucide-react"
 
 export default function GeneralSettings() {
   const [systemName, setSystemName] = useState("TBKK-Surazense")
@@ -14,9 +16,82 @@ export default function GeneralSettings() {
   const [dateFormat, setDateFormat] = useState("MM/DD/YYYY")
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState("30")
+  const [lineToken, setLineToken] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+  const { toast } = useToast()
+  const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    
+    try {
+      console.log("Settings saved", {
+        systemName,
+        timezone,
+        dateFormat,
+        autoRefresh,
+        refreshInterval,
+        lineToken,
+      })
+
+      if (lineToken.trim() !== "") {
+        const res = await fetch(`${BASE_API_URL}/line/update-token`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(lineToken),
+        })
+
+        if (!res.ok) {
+          throw new Error(`Failed to update line token: ${res.status}`)
+        }
+
+        const data = await res.json()
+        console.log("Line token updated:", data)
+      }
+
+      // แสดง toast เมื่อบันทึกสำเร็จ
+      toast({
+        description: (
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <div className="flex flex-col gap-1">
+              <p className="font-semibold">บันทึกสำเร็จ</p>
+              <p className="text-sm text-muted-foreground">
+                การตั้งค่าของคุณได้รับการบันทึกเรียบร้อยแล้ว
+              </p>
+            </div>
+          </div>
+        ),
+        className: "border-green-500",
+      })
+    } catch (err) {
+      console.error(err)
+      
+      // แสดง toast เมื่อเกิดข้อผิดพลาด
+      toast({
+        description: (
+          <div className="flex items-start gap-3">
+            <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex flex-col gap-1">
+              <p className="font-semibold">เกิดข้อผิดพลาด</p>
+              <p className="text-sm text-muted-foreground">
+                ไม่สามารถบันทึกการตั้งค่าได้ กรุณาลองใหม่อีกครั้ง
+              </p>
+            </div>
+          </div>
+        ),
+        className: "border-red-500",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="space-y-6 mt-6">
+      {/* ... rest of the code remains the same ... */}
       <Card>
         <CardHeader>
           <CardTitle>System Settings</CardTitle>
@@ -136,8 +211,28 @@ export default function GeneralSettings() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Line Bot Settings</CardTitle>
+          <CardDescription>Configure Line Bot integration settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="line-token">Line Token</Label>
+            <Input
+              id="line-token"
+              value={lineToken}
+              onChange={(e) => setLineToken(e.target.value)}
+              placeholder="XZmEYQX8xxx/xxx="
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
-        <Button>Save Settings</Button>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? "Saving..." : "Save Settings"}
+        </Button>
       </div>
     </div>
   )

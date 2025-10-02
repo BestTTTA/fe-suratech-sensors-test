@@ -33,6 +33,7 @@ export default function RegisterPage() {
     }
   }, [isAuthenticated, loading, router])
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)

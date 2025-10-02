@@ -50,6 +50,7 @@ export default function SettingsPage() {
             <SystemSettings />
           </Suspense>
         </TabsContent>
+
       </Tabs>
     </div>
   )
