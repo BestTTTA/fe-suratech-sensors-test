@@ -1,8 +1,17 @@
+// {
+//   "crons": [
+//     {
+//       "path": "/api/cron/screenshot-report",
+//       "schedule": "0 9 1,15 * *"
+//     }
+//   ]
+// }
+
 {
   "crons": [
     {
       "path": "/api/cron/screenshot-report",
-      "schedule": "0 9 1,15 * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }
