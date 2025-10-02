@@ -12,41 +12,53 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log('Starting screenshot capture with API...')
-
     const targetUrl = process.env.NEXT_PUBLIC_BASE_URL
-    
-    // ใช้ Screenshot API (screenshotapi.net - มี free tier)
-    const apiToken = process.env.SCREENSHOT_API_TOKEN
-    const apiUrl = `https://shot.screenshotapi.net/screenshot`
-    
+    const apiToken  = process.env.SCREENSHOT_API_TOKEN
+
+    if (!targetUrl) throw new Error('NEXT_PUBLIC_BASE_URL is not set')
+    if (!apiToken)  throw new Error('SCREENSHOT_API_TOKEN is not set')
+
+    console.log('Starting screenshot capture with API...')
+    console.log(`Capturing screenshot of ${targetUrl}`)
+
+    // ✅ Correct endpoint
+    const apiUrl = 'https://screenshotapi.net/api/v1/screenshot'
+
+    // Build query params (encode URL explicitly)
     const params = new URLSearchParams({
-      token: apiToken!,
-      url: targetUrl!,
+      token: apiToken,
+      url: encodeURIComponent(targetUrl),
       output: 'image',
       file_type: 'png',
       wait_for_event: 'load',
       delay: '2000',
       width: '1920',
       height: '1080',
-      full_page: 'true'
+      full_page: 'true',
+      // Optional: if target returns 4xx/5xx and you still want an image, set false (default)
+      // fail_on_error: 'false',
     })
 
-    console.log(`Capturing screenshot of ${targetUrl}`)
-    
-    const screenshotResponse = await fetch(`${apiUrl}?${params}`, {
+    const screenshotResponse = await fetch(`${apiUrl}?${params.toString()}`, {
       method: 'GET',
     })
 
     if (!screenshotResponse.ok) {
-      throw new Error(`Screenshot API error: ${screenshotResponse.status}`)
+      // Try to read JSON error if present
+      let detail = ''
+      try {
+        const j = await screenshotResponse.json()
+        detail = j?.message || JSON.stringify(j)
+      } catch {
+        detail = await screenshotResponse.text()
+      }
+      throw new Error(`Screenshot API error ${screenshotResponse.status}: ${detail}`)
     }
 
     const screenshot = await screenshotResponse.arrayBuffer()
     console.log('Screenshot captured successfully')
 
-    // ส่งอีเมล
-    console.log('Sending email...')
+    // Send email
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -55,21 +67,21 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const recipients = process.env.REPORT_RECIPIENTS?.split(',') || []
-    
-    if (recipients.length === 0) {
-      throw new Error('No recipients configured')
-    }
+    const recipients = process.env.REPORT_RECIPIENTS?.split(',').map(s => s.trim()).filter(Boolean) || []
+    if (recipients.length === 0) throw new Error('No recipients configured in REPORT_RECIPIENTS')
 
-    const mailOptions = {
+    const nowTH = new Date().toLocaleString('th-TH')
+    const subjectTH = `TBKK-Surazense - รายงานประจำทุก 2 สัปดาห์ ${new Date().toLocaleDateString('th-TH')}`
+
+    await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: recipients.join(','),
-      subject: `TBKK-Surazense - รายงานประจำทุก 2 สัปดาห์ ${new Date().toLocaleDateString('th-TH')}`,
+      subject: subjectTH,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">รายงานประจำทุก 2 สัปดาห์</h2>
           <p>สวัสดีครับ,</p>
-          <p>นี่คือ screenshot ระบบ TBKK-Surazense ณ วันที่ ${new Date().toLocaleString('th-TH')}</p>
+          <p>นี่คือ screenshot ระบบ TBKK-Surazense ณ วันที่ ${nowTH}</p>
           <p>Screenshot แนบมาพร้อมอีเมลนี้แล้วครับ</p>
           <hr style="border: 1px solid #eee; margin: 20px 0;">
           <p style="color: #666; font-size: 12px;">
@@ -85,26 +97,24 @@ export async function GET(request: NextRequest) {
           contentType: 'image/png',
         },
       ],
-    }
+    })
 
-    await transporter.sendMail(mailOptions)
     console.log('Email sent successfully')
 
     return NextResponse.json({
       success: true,
       message: 'Screenshot report sent successfully',
       timestamp: new Date().toISOString(),
-      recipients: recipients.length
+      recipients: recipients.length,
     })
-
   } catch (error) {
     console.error('Cron job error:', error)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
