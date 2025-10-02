@@ -1,9 +1,12 @@
 // app/api/cron/screenshot-report/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import chromium from '@sparticuz/chromium'
+import puppeteer from 'puppeteer-core'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 30
+export const maxDuration = 60   // อาจต้องเพิ่มเวลาเล็กน้อย
+export const runtime = 'nodejs' // สำคัญ: ใช้ Node runtime บน Vercel
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -13,52 +16,31 @@ export async function GET(request: NextRequest) {
 
   try {
     const targetUrl = process.env.NEXT_PUBLIC_BASE_URL
-    const apiToken  = process.env.SCREENSHOT_API_TOKEN
-
     if (!targetUrl) throw new Error('NEXT_PUBLIC_BASE_URL is not set')
-    if (!apiToken)  throw new Error('SCREENSHOT_API_TOKEN is not set')
 
-    console.log('Starting screenshot capture with API...')
-    console.log(`Capturing screenshot of ${targetUrl}`)
-
-    // ✅ Correct endpoint
-    const apiUrl = 'https://screenshotapi.net/api/v1/screenshot'
-
-    // Build query params (encode URL explicitly)
-    const params = new URLSearchParams({
-      token: apiToken,
-      url: encodeURIComponent(targetUrl),
-      output: 'image',
-      file_type: 'png',
-      wait_for_event: 'load',
-      delay: '2000',
-      width: '1920',
-      height: '1080',
-      full_page: 'true',
-      // Optional: if target returns 4xx/5xx and you still want an image, set false (default)
-      // fail_on_error: 'false',
+    // ตั้งค่า chromium บน serverless
+    const executablePath = await chromium.executablePath()
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: { width: 1920, height: 1080 },
+      executablePath,
+      headless: chromium.headless,
     })
 
-    const screenshotResponse = await fetch(`${apiUrl}?${params.toString()}`, {
-      method: 'GET',
-    })
+    const page = await browser.newPage()
 
-    if (!screenshotResponse.ok) {
-      // Try to read JSON error if present
-      let detail = ''
-      try {
-        const j = await screenshotResponse.json()
-        detail = j?.message || JSON.stringify(j)
-      } catch {
-        detail = await screenshotResponse.text()
-      }
-      throw new Error(`Screenshot API error ${screenshotResponse.status}: ${detail}`)
-    }
+    // ไปยังหน้าเป้าหมาย (ถ้าต้องรอ network idle เปลี่ยนเป็น 'networkidle2')
+    await page.goto(targetUrl, { waitUntil: 'load', timeout: 60_000 })
+    // รอ assets เพิ่มเติมเล็กน้อย
+    await new Promise(resolve => setTimeout(resolve, 2000))
 
-    const screenshot = await screenshotResponse.arrayBuffer()
-    console.log('Screenshot captured successfully')
+    // ถ้าหน้าคุณต้อง login/มี element เฉพาะ รอ selector ก็ได้ เช่น:
+    // await page.waitForSelector('#dashboard-ready', { timeout: 15000 })
 
-    // Send email
+    const screenshot = await page.screenshot({ type: 'png', fullPage: true }) as Buffer
+    await browser.close()
+
+    // ส่งอีเมล
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -93,13 +75,11 @@ export async function GET(request: NextRequest) {
       attachments: [
         {
           filename: `tbkk-report-${Date.now()}.png`,
-          content: Buffer.from(screenshot),
+          content: screenshot,
           contentType: 'image/png',
         },
       ],
     })
-
-    console.log('Email sent successfully')
 
     return NextResponse.json({
       success: true,
@@ -110,11 +90,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Cron job error:', error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 },
+      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
     )
   }
 }
