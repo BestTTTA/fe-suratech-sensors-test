@@ -1,8 +1,21 @@
 // app/api/cron/screenshot-report/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import chromium from '@sparticuz/chromium'
-import puppeteer from 'puppeteer-core'
 import nodemailer from 'nodemailer'
+
+// Import แบบมีเงื่อนไข
+let chromium: any
+let puppeteer: any
+
+// ตรวจสอบว่าเป็น production หรือ development
+const isProduction = process.env.NODE_ENV === 'production'
+
+if (isProduction) {
+  chromium = require('@sparticuz/chromium')
+  puppeteer = require('puppeteer-core')
+} else {
+  // ใน development ใช้ puppeteer แบบเต็ม
+  puppeteer = require('puppeteer')
+}
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -12,14 +25,26 @@ export async function GET(request: NextRequest) {
 
   try {
     console.log('Starting screenshot capture...')
+    console.log('Environment:', isProduction ? 'Production' : 'Development')
 
-    // Launch browser
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-    })
+    // Launch browser ตาม environment
+    let browser
+    
+    if (isProduction) {
+      // สำหรับ Vercel/Production
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+      })
+    } else {
+      // สำหรับ Local Development
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      })
+    }
     
     const page = await browser.newPage()
     await page.setViewport({ width: 1920, height: 1080 })
@@ -33,7 +58,7 @@ export async function GET(request: NextRequest) {
       timeout: 30000
     })
     
-    // แก้ไข: ใช้ setTimeout แทน waitForTimeout
+    // รอให้หน้าโหลดเสร็จ
     await new Promise(resolve => setTimeout(resolve, 2000))
     
     console.log('Capturing screenshot...')
@@ -63,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     const mailOptions = {
       from: process.env.GMAIL_USER,
-      to: recipients.join(','), // แก้ไข: แปลง array เป็น string
+      to: recipients.join(','),
       subject: `TBKK-Surazense - รายงานประจำทุก 2 สัปดาห์ ${new Date().toLocaleDateString('th-TH')}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -81,7 +106,7 @@ export async function GET(request: NextRequest) {
       attachments: [
         {
           filename: `tbkk-report-${Date.now()}.png`,
-          content: Buffer.from(screenshot), // แก้ไข: แปลง Uint8Array เป็น Buffer
+          content: Buffer.from(screenshot),
           contentType: 'image/png',
         },
       ],
@@ -94,7 +119,8 @@ export async function GET(request: NextRequest) {
       success: true,
       message: 'Screenshot report sent successfully',
       timestamp: new Date().toISOString(),
-      recipients: recipients.length
+      recipients: recipients.length,
+      environment: isProduction ? 'production' : 'development'
     })
 
   } catch (error) {
