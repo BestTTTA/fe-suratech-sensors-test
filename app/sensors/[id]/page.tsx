@@ -1,17 +1,33 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react"
-import { useRouter, useParams } from "next/navigation"
-import { ArrowLeft, MoreVertical, Calendar, Settings } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { formatThaiDate } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { formatDate, getSignalStrength, getSignalStrengthLabel, uploadSensorImage } from "@/lib/utils"
-import { Line } from "react-chartjs-2"
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { ArrowLeft, MoreVertical, Calendar, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { formatThaiDate } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  formatDate,
+  getSignalStrength,
+  getSignalStrengthLabel,
+  uploadSensorImage,
+} from "@/lib/utils";
+import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,49 +38,102 @@ import {
   Tooltip,
   Legend,
   Filler,
-} from "chart.js"
-import zoomPlugin from 'chartjs-plugin-zoom';
+} from "chart.js";
+import zoomPlugin from "chartjs-plugin-zoom";
 // Import calculation functions from utility
-import { 
-  adcToAccelerationG, 
-  accelerationGToMmPerSecSquared, 
-  accelerationToVelocity, 
-  calculateFFT, 
+import {
+  adcToAccelerationG,
+  accelerationGToMmPerSecSquared,
+  accelerationToVelocity,
+  calculateFFT,
   getAxisTopPeakStats,
   calculateVibrationStats,
   handlingWindowFunction,
-  findTopPeaks
-} from "@/lib/utils/sensorCalculations"
-import { getCardBackgroundColor, type SensorConfig } from "@/lib/utils/vibrationUtils"
+  findTopPeaks,
+} from "@/lib/utils/sensorCalculations";
+import {
+  getCardBackgroundColor,
+  type SensorConfig,
+} from "@/lib/utils/vibrationUtils";
+import Cropper from "react-easy-crop";
 
-ChartJS.register(zoomPlugin, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
-
-
+ChartJS.register(
+  zoomPlugin,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 // First, update the SensorLastData interface to properly handle the vibration data arrays
 interface SensorLastData {
-  id: string
-  name: string
-  sensor_type: string | null
-  unit: string | null
-  fmax: number
-  lor: number
-  g_scale: number
-  alarm_ths: number
-  time_interval: number
+  id: string;
+  name: string;
+  sensor_type: string | null;
+  unit: string | null;
+  fmax: number;
+  lor: number;
+  g_scale: number;
+  alarm_ths: number;
+  time_interval: number;
   data: {
-    datetime: string
-    h: number[]
-    v: number[]
-    a: number[]
-    temperature: number
-    battery: number
-    rssi: number
-    flag: string
-  }
+    datetime: string;
+    h: number[];
+    v: number[];
+    a: number[];
+    temperature: number;
+    battery: number;
+    rssi: number;
+    flag: string;
+  };
 }
 
+// ===== helper: ครอปรูปด้วย canvas =====
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number }
+) {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = imageSrc;
+  });
 
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  const blob: Blob = await new Promise((resolve) =>
+    canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.92)
+  );
+  const file = new File([blob], `sensor-cropped-${Date.now()}.jpg`, {
+    type: "image/jpeg",
+  });
+  const previewUrl = URL.createObjectURL(blob);
+
+  return { file, previewUrl };
+}
 
 // ฟังก์ชันเตรียมข้อมูลสำหรับกราฟ
 function prepareChartData(
@@ -89,27 +158,31 @@ function prepareChartData(
       rmsValue: "0.000",
       peakValue: "0.000",
       peakToPeakValue: "0.000",
-      datasets: [{
-        label: "No Data",
-        data: [],
-        borderColor: "rgb(75, 192, 192)",
-        backgroundColor: "rgba(75, 192, 192, 0.1)",
-        tension: 0.1,
-        pointRadius: 0,
-      }],
+      datasets: [
+        {
+          label: "No Data",
+          data: [],
+          borderColor: "rgb(75, 192, 192)",
+          backgroundColor: "rgba(75, 192, 192, 0.1)",
+          tension: 0.1,
+          pointRadius: 0,
+        },
+      ],
     };
 
     const emptyFreqData = {
       labels: [],
-      datasets: [{
-        label: "No Data",
-        data: [],
-        borderColor: "rgb(75, 192, 192)",
-        backgroundColor: "rgba(75, 192, 192, 0.1)",
-        tension: 0.1,
-        pointRadius: 3,
-        pointBackgroundColor: [],
-      }],
+      datasets: [
+        {
+          label: "No Data",
+          data: [],
+          borderColor: "rgb(75, 192, 192)",
+          backgroundColor: "rgba(75, 192, 192, 0.1)",
+          tension: 0.1,
+          pointRadius: 3,
+          pointBackgroundColor: [],
+        },
+      ],
     };
 
     return {
@@ -124,38 +197,51 @@ function prepareChartData(
   }
 
   // สร้างป้ายเวลาสำหรับกราฟ
-  const n = rawAxisData.length
-  const totalTime = configData.lor / configData.fmax
-  const timeLabels = Array.from({ length: n }, (_, i) => (i * totalTime / (n - 1)).toFixed(4))
+  const n = rawAxisData.length;
+  const totalTime = configData.lor / configData.fmax;
+  const timeLabels = Array.from({ length: n }, (_, i) =>
+    ((i * totalTime) / (n - 1)).toFixed(4)
+  );
 
   // ประมวลผลข้อมูลตามหน่วยที่เลือก
-  let processedData: number[]
-  let yAxisLabel: string
-  const gData = rawAxisData.map((adc) => adcToAccelerationG(adc, configData.g_scale))
-  const mmPerSecSquaredData = gData.map((g) => accelerationGToMmPerSecSquared(g))
-  const actualTimeInterval = totalTime / (n - 1)
-  const velocityData = accelerationToVelocity(mmPerSecSquaredData, actualTimeInterval)
+  let processedData: number[];
+  let yAxisLabel: string;
+  const gData = rawAxisData.map((adc) =>
+    adcToAccelerationG(adc, configData.g_scale)
+  );
+  const mmPerSecSquaredData = gData.map((g) =>
+    accelerationGToMmPerSecSquared(g)
+  );
+  const actualTimeInterval = totalTime / (n - 1);
+  const velocityData = accelerationToVelocity(
+    mmPerSecSquaredData,
+    actualTimeInterval
+  );
 
   if (selectedUnit === "Acceleration (G)") {
-    processedData = gData
-    yAxisLabel = "Acceleration (G)"
+    processedData = gData;
+    yAxisLabel = "Acceleration (G)";
   } else if (selectedUnit === "Acceleration (mm/s²)") {
-    processedData = mmPerSecSquaredData
-    yAxisLabel = "Acceleration (rms, mm/s²)"
+    processedData = mmPerSecSquaredData;
+    yAxisLabel = "Acceleration (rms, mm/s²)";
   } else {
-    processedData = velocityData
-    yAxisLabel = "Velocity (rms, mm/s)"
+    processedData = velocityData;
+    yAxisLabel = "Velocity (rms, mm/s)";
   }
 
   // ===== OVERALL STATISTICS CALCULATION =====
   // Calculate RMS using the same method as getAxisTopPeakStats
-  const rms = processedData.length > 0
-    ? Math.sqrt(processedData.reduce((sum, val) => sum + val * val, 0) / processedData.length)
-    : 0;
-  const peak = rms
+  const rms =
+    processedData.length > 0
+      ? Math.sqrt(
+          processedData.reduce((sum, val) => sum + val * val, 0) /
+            processedData.length
+        )
+      : 0;
+  const peak = rms;
 
   // peak * 2
-  const peakToPeak = peak * 2
+  const peakToPeak = peak * 2;
   const rmsValue = rms.toFixed(3);
   const peakValue = peak.toFixed(3);
   const peakToPeakValue = peakToPeak.toFixed(3);
@@ -176,38 +262,53 @@ function prepareChartData(
         pointRadius: 0,
       },
     ],
-  }
+  };
 
   // ===== FFT CALCULATIONS =====
-  const deltaF = (configData.fmax * 2.56) / (configData.lor * 2.56)
-  let magnitude: number[] = [], frequency: number[] = []
-  let feqProcessedData: number[] = []
+  const deltaF = (configData.fmax * 2.56) / (configData.lor * 2.56);
+  let magnitude: number[] = [],
+    frequency: number[] = [];
+  let feqProcessedData: number[] = [];
   if (selectedUnit === "Acceleration (G)") {
     // Use the same method as getAxisTopPeakStats for consistency
     // Don't apply windowing for Acceleration (G) to match Horizontal (H) card
-    ({ magnitude, frequency } = calculateFFT(gData, configData.fmax))
+    ({ magnitude, frequency } = calculateFFT(gData, configData.fmax));
   } else if (selectedUnit === "Acceleration (mm/s²)") {
-    feqProcessedData = handlingWindowFunction(mmPerSecSquaredData) as number[]
-    ({ magnitude, frequency } = calculateFFT(feqProcessedData, configData.fmax))
+    feqProcessedData = handlingWindowFunction(mmPerSecSquaredData) as number[];
+    ({ magnitude, frequency } = calculateFFT(
+      feqProcessedData,
+      configData.fmax
+    ));
   } else {
-    const mmWithHanding = handlingWindowFunction(mmPerSecSquaredData) as number[]
-    ({ magnitude, frequency } = calculateFFT(mmWithHanding, configData.fmax))
-     magnitude = magnitude.map((val, idx) => val / (2 * Math.PI * (idx * deltaF)))
+    const mmWithHanding = handlingWindowFunction(
+      mmPerSecSquaredData
+    ) as number[];
+    ({ magnitude, frequency } = calculateFFT(mmWithHanding, configData.fmax));
+    magnitude = magnitude.map(
+      (val, idx) => val / (2 * Math.PI * (idx * deltaF))
+    );
   }
 
   // Check if FFT calculation was successful
-  if (!magnitude || magnitude.length === 0 || !frequency || frequency.length === 0) {
+  if (
+    !magnitude ||
+    magnitude.length === 0 ||
+    !frequency ||
+    frequency.length === 0
+  ) {
     const emptyFreqData = {
       labels: [],
-      datasets: [{
-        label: `${yAxisLabel}`,
-        data: [],
-        borderColor: "rgb(75, 192, 192)",
-        backgroundColor: "rgba(75, 192, 192, 0.1)",
-        tension: 0.1,
-        pointRadius: 3,
-        pointBackgroundColor: [],
-      }],
+      datasets: [
+        {
+          label: `${yAxisLabel}`,
+          data: [],
+          borderColor: "rgb(75, 192, 192)",
+          backgroundColor: "rgba(75, 192, 192, 0.1)",
+          tension: 0.1,
+          pointRadius: 3,
+          pointBackgroundColor: [],
+        },
+      ],
     };
 
     return {
@@ -223,29 +324,38 @@ function prepareChartData(
 
   // ===== PEAK FINDING USING STRUCTURED FUNCTION =====
   // Remove zero frequency (DC component)
-  const freqMagnitude = magnitude.slice(3)
+  const freqMagnitude = magnitude.slice(3);
   // array of number start with 0 end with 4096
-  const freqLabels = Array.from({ length: freqMagnitude.length }, (_, i) => i * deltaF).map(label => label.toFixed(4)).slice(3)
+  const freqLabels = Array.from(
+    { length: freqMagnitude.length },
+    (_, i) => i * deltaF
+  )
+    .map((label) => label.toFixed(4))
+    .slice(3);
 
   // Use findTopPeaks function for consistent peak detection
   // For Acceleration (G), ensure we're using the same data as Horizontal (H) card
-  let topPeaks: { peak: number; rms: string; frequency: string }[] = []
-  let pointBackgroundColor: string[] = []
-  
+  let topPeaks: { peak: number; rms: string; frequency: string }[] = [];
+  let pointBackgroundColor: string[] = [];
+
   if (selectedUnit === "Acceleration (G)") {
     // For Acceleration (G), use the same FFT magnitude data as getAxisTopPeakStats
-    const { topPeaks: fftPeaks, pointBackgroundColor: fftColors } = findTopPeaks(freqMagnitude, freqLabels, configData.lor, 5)
-    topPeaks = fftPeaks
-    pointBackgroundColor = fftColors
+    const { topPeaks: fftPeaks, pointBackgroundColor: fftColors } =
+      findTopPeaks(freqMagnitude, freqLabels, configData.lor, 5);
+    topPeaks = fftPeaks;
+    pointBackgroundColor = fftColors;
   } else {
     // For other units, use the processed magnitude data
-    const { topPeaks: processedPeaks, pointBackgroundColor: processedColors } = findTopPeaks(freqMagnitude, freqLabels, configData.lor, 5)
-    topPeaks = processedPeaks
-    pointBackgroundColor = processedColors
+    const { topPeaks: processedPeaks, pointBackgroundColor: processedColors } =
+      findTopPeaks(freqMagnitude, freqLabels, configData.lor, 5);
+    topPeaks = processedPeaks;
+    pointBackgroundColor = processedColors;
   }
   //freqLabels not over lor * (deltaF)
   // find index of freqLabels that is over lor  * (deltaF)
-  const indexOfMaxFreq = freqLabels.findIndex(label => parseFloat(label) > (configData.lor) * deltaF)
+  const indexOfMaxFreq = freqLabels.findIndex(
+    (label) => parseFloat(label) > configData.lor * deltaF
+  );
   const freqChartData = {
     labels: freqLabels.slice(0, indexOfMaxFreq),
     datasets: [
@@ -259,7 +369,7 @@ function prepareChartData(
         pointBackgroundColor,
       },
     ],
-  }
+  };
 
   return {
     timeData: timeChartData,
@@ -269,58 +379,56 @@ function prepareChartData(
     peakValue,
     peakToPeakValue,
     topPeaks,
-  }
+  };
 }
-
-
 
 // Add this helper function after the existing formatDate function
 const formatDateTime = (dateString: string) => {
-  const date = new Date(dateString)
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: false,
-    timeZone: 'UTC'
-  })
-}
-
-
+    timeZone: "UTC",
+  });
+};
 
 export default function SensorDetailPage() {
-  const router = useRouter()
-  const params = useParams() as { id: string }
-  
+  const router = useRouter();
+  const params = useParams() as { id: string };
+
   // Client-side only state to prevent SSR hydration issues
-  const [mounted, setMounted] = useState(false)
-  
+  const [mounted, setMounted] = useState(false);
+
   // สถานะของคอมโพเนนต์
-  const [sensor, setSensor] = useState<any>(null)
-  const [sensorLastData, setSensorLastData] = useState<SensorLastData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedAxis, setSelectedAxis] = useState("H-axis")
-  const [selectedUnit, setSelectedUnit] = useState("Acceleration (G)")
-  const [error, setError] = useState<string | null>(null)
-  const [datetimes, setDatetimes] = useState<string[]>([])
+  const [sensor, setSensor] = useState<any>(null);
+  const [sensorLastData, setSensorLastData] = useState<SensorLastData | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [selectedAxis, setSelectedAxis] = useState("H-axis");
+  const [selectedUnit, setSelectedUnit] = useState("Acceleration (G)");
+  const [error, setError] = useState<string | null>(null);
+  const [datetimes, setDatetimes] = useState<string[]>([]);
   const [vibrationStats, setVibrationStats] = useState({
     rms: "0.000",
     peak: "0.000",
     status: "Normal",
-  })
-  const [selectedDatetime, setSelectedDatetime] = useState<string>("")
+  });
+  const [selectedDatetime, setSelectedDatetime] = useState<string>("");
 
   // Configuration modal state
-  const [configModalOpen, setConfigModalOpen] = useState(false)
-  const [configLoading, setConfigLoading] = useState(false)
-  const [configError, setConfigError] = useState<string | null>(null)
-  const [configSuccess, setConfigSuccess] = useState<string | null>(null)
-  const [imageUploadLoading, setImageUploadLoading] = useState(false)
-  const [selectedImage, setSelectedImage] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [configSuccess, setConfigSuccess] = useState<string | null>(null);
+  const [imageUploadLoading, setImageUploadLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [configData, setConfigData] = useState({
     serialNumber: "",
     sensorName: "",
@@ -340,49 +448,66 @@ export default function SensorDetailPage() {
     // Add axis direction configuration
     hAxisEnabled: true,
     vAxisEnabled: true,
-    aAxisEnabled: true
-  })
+    aAxisEnabled: true,
+  });
+  // Crop states
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [rawImageDataUrl, setRawImageDataUrl] = useState<string | null>(null);
+  const [croppedFile, setCroppedFile] = useState<File | null>(null); // ใช้ไฟล์ที่ครอปจริง ๆ สำหรับอัปโหลด
 
-  const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+  const onCropComplete = (_: any, croppedAreaPixelsRes: any) => {
+    setCroppedAreaPixels(croppedAreaPixelsRes);
+  };
+
+  const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   // ฟังก์ชันดึงข้อมูลล่าสุดจากเซ็นเซอร์
   const fetchSensorLastData = async (sensorId: string) => {
     try {
-      const response = await fetch(`${BASE_API_URL}/sensors/${sensorId}/last-data`, {
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      })
+      const response = await fetch(
+        `${BASE_API_URL}/sensors/${sensorId}/last-data`,
+        {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        }
+      );
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json()
-      setSensorLastData(data)
-      return data
+      const data = await response.json();
+      setSensorLastData(data);
+      return data;
     } catch (error) {
       // Error fetching sensor last data
-      setError("Failed to fetch sensor data from API")
-      return null
+      setError("Failed to fetch sensor data from API");
+      return null;
     }
-  }
+  };
 
   // ฟังก์ชันดึงข้อมูล configuration ของเซ็นเซอร์
   const fetchSensorConfig = async (sensorId: string) => {
     try {
-      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/config`, {
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      })
+      const response = await fetch(
+        `${BASE_API_URL}/sensors/${sensorId}/config`,
+        {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        }
+      );
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const configData = await response.json()
-      
+      const configData = await response.json();
+
       // Update configData state with fetched configuration
-      setConfigData(prev => ({
+      setConfigData((prev) => ({
         ...prev,
         serialNumber: configData.serial_number || prev.serialNumber,
         sensorName: configData.sensor_name,
@@ -396,34 +521,35 @@ export default function SensorDetailPage() {
         time_interval: configData.time_interval || prev.time_interval,
         alarm_ths: configData.alarm_ths || prev.alarm_ths,
         thresholdMin: configData.threshold_min?.toString() || prev.thresholdMin,
-        thresholdMedium: configData.threshold_medium?.toString() || prev.thresholdMedium,
+        thresholdMedium:
+          configData.threshold_medium?.toString() || prev.thresholdMedium,
         thresholdMax: configData.threshold_max?.toString() || prev.thresholdMax,
         notes: configData.note || prev.notes,
         hAxisEnabled: configData.h_axis_enabled !== false, // Default to true if not specified
         vAxisEnabled: configData.v_axis_enabled !== false, // Default to true if not specified
         aAxisEnabled: configData.a_axis_enabled !== false, // Default to true if not specified
-        image_url: configData.image_url || prev.image_url
-      }))
-      
-      return configData
+        image_url: configData.image_url || prev.image_url,
+      }));
+
+      return configData;
     } catch (error) {
       // Error fetching sensor config - this is not critical, so we don't set error state
-      console.log("Failed to fetch sensor config from API, using defaults")
-      return null
+      console.log("Failed to fetch sensor config from API, using defaults");
+      return null;
     }
-  }
+  };
 
   // ฟังก์ชันดึงข้อมูลพื้นฐานของเซ็นเซอร์
   const fetchSensor = async () => {
     try {
       // ดึงข้อมูลล่าสุดจากเซ็นเซอร์
-      const lastData = await fetchSensorLastData(params.id)
+      const lastData = await fetchSensorLastData(params.id);
       if (lastData) {
         // สร้างข้อมูลเซ็นเซอร์จาก API ถ้าไม่พบในฐานข้อมูล
-        const hData = lastData.data.h || []
-        const vData = lastData.data.v || []
-        const aData = lastData.data.a || []
-        
+        const hData = lastData.data.h || [];
+        const vData = lastData.data.v || [];
+        const aData = lastData.data.a || [];
+
         setSensor({
           id: params.id,
           name: lastData.name,
@@ -444,7 +570,7 @@ export default function SensorDetailPage() {
           g_scale: lastData.g_scale,
           alarm_ths: lastData.alarm_ths,
           time_interval: lastData.time_interval,
-        })
+        });
       } else {
         // สร้างข้อมูลเซ็นเซอร์เริ่มต้นถ้าไม่พบข้อมูล
         setSensor({
@@ -461,11 +587,11 @@ export default function SensorDetailPage() {
           battery: 80,
           lastUpdated: new Date().toISOString(),
           installationDate: "2025-04-26",
-        })
+        });
       }
     } catch (error) {
       // Error fetching sensor
-      setError("Failed to fetch sensor data")
+      setError("Failed to fetch sensor data");
       // สร้างข้อมูลเซ็นเซอร์เริ่มต้นเมื่อเกิดข้อผิดพลาด
       setSensor({
         id: params.id,
@@ -481,38 +607,41 @@ export default function SensorDetailPage() {
         battery: 80,
         lastUpdated: new Date().toISOString(),
         installationDate: "2025-04-26",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // ฟังก์ชันดึงข้อมูลวันที่ของเซ็นเซอร์
   const fetchSensorDatetimes = async (sensorId: string) => {
     try {
-      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${sensorId}/datetimes`, {
-        cache: "no-store",
-        headers: {
-          "Accept": "application/json",
-          "Cache-Control": "no-cache",
-        },
-      })
+      const response = await fetch(
+        `${BASE_API_URL}/sensors/${sensorId}/datetimes`,
+        {
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+        }
+      );
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json()
-      setDatetimes(data.datetimes)
-      return data.datetimes
+      const data = await response.json();
+      setDatetimes(data.datetimes);
+      return data.datetimes;
     } catch (error) {
       // Error fetching sensor datetimes
-      setError("Failed to fetch sensor datetimes")
-      return []
+      setError("Failed to fetch sensor datetimes");
+      return [];
     }
-  }
+  };
   // Set mounted state to prevent SSR hydration issues
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   // ฟังก์ชันดึงข้อมูลเมื่อคอมโพเนนต์โหลด
   useEffect(() => {
@@ -521,17 +650,17 @@ export default function SensorDetailPage() {
       Promise.all([
         fetchSensor(),
         fetchSensorDatetimes(params.id),
-        fetchSensorConfig(params.id)
-      ]).catch(error => {
-        console.error("Error fetching sensor data:", error)
-      })
+        fetchSensorConfig(params.id),
+      ]).catch((error) => {
+        console.error("Error fetching sensor data:", error);
+      });
     }
-  }, [params.id, mounted])
+  }, [params.id, mounted]);
 
   // Update config data when sensorLastData changes
   useEffect(() => {
     if (sensorLastData) {
-      setConfigData(prev => ({
+      setConfigData((prev) => ({
         ...prev,
         sensorName: configData.sensorName || "",
         machineNumber: configData.machineNumber || "", // Keep existing value if available
@@ -546,77 +675,80 @@ export default function SensorDetailPage() {
         thresholdMin: prev.thresholdMin || "",
         thresholdMedium: prev.thresholdMedium || "",
         thresholdMax: prev.thresholdMax || "",
-        notes: prev.notes || "" // Keep existing value if available
-      }))
+        notes: prev.notes || "", // Keep existing value if available
+      }));
     }
-  }, [sensorLastData, sensor])
+  }, [sensorLastData, sensor]);
 
   // Cleanup modal state on component unmount
   useEffect(() => {
     return () => {
-      setConfigModalOpen(false)
-      setConfigError(null)
-      setConfigSuccess(null)
-      setConfigLoading(false)
-    }
-  }, [])
+      setConfigModalOpen(false);
+      setConfigError(null);
+      setConfigSuccess(null);
+      setConfigLoading(false);
+    };
+  }, []);
 
   // Force cleanup when modal closes
   useEffect(() => {
     if (!configModalOpen) {
       // Small delay to ensure modal is fully closed
       const timer = setTimeout(() => {
-        setConfigError(null)
-        setConfigSuccess(null)
-        setConfigLoading(false)
-      }, 100)
-      return () => clearTimeout(timer)
+        setConfigError(null);
+        setConfigSuccess(null);
+        setConfigLoading(false);
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [configModalOpen])
+  }, [configModalOpen]);
 
   // Configuration functions
   const handleConfigSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setConfigLoading(true)
-    setConfigError(null)
-    setConfigSuccess(null)
+    e.preventDefault();
+    setConfigLoading(true);
+    setConfigError(null);
+    setConfigSuccess(null);
 
     try {
-      const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${params.id}/config`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sensor_name: configData.sensorName,
-          machine_number: configData.machineNumber,
-          installation_point: configData.installationPoint,
-          machine_class: configData.machineClass,
-          fmax: configData.fmax,
-          lor: configData.lor,
-          g_scale: configData.g_scale,
-          time_interval: configData.time_interval,
-          alarm_ths: Number(configData.alarm_ths) || 5.0,
-          threshold_min: Number(configData.thresholdMin) || 0,
-          threshold_medium: Number(configData.thresholdMedium) || 0,
-          threshold_max: Number(configData.thresholdMax) || 0,
-          note: configData.notes || "",
-          image_url: configData.image_url || "",
-        }),
-      })
+      const response = await fetch(
+        `${BASE_API_URL}/sensors/${params.id}/config`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sensor_name: configData.sensorName,
+            machine_number: configData.machineNumber,
+            installation_point: configData.installationPoint,
+            machine_class: configData.machineClass,
+            fmax: configData.fmax,
+            lor: configData.lor,
+            g_scale: configData.g_scale,
+            time_interval: configData.time_interval,
+            alarm_ths: Number(configData.alarm_ths) || 5.0,
+            threshold_min: Number(configData.thresholdMin) || 0,
+            threshold_medium: Number(configData.thresholdMedium) || 0,
+            threshold_max: Number(configData.thresholdMax) || 0,
+            note: configData.notes || "",
+            image_url: configData.image_url || "",
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await response.json()
-      setConfigSuccess('Sensor configuration updated successfully!')
-      
+      const result = await response.json();
+      setConfigSuccess("Sensor configuration updated successfully!");
+
       // Refresh sensor data to get updated configuration
-      await fetchSensorLastData(params.id)
-      
+      await fetchSensorLastData(params.id);
+
       // Update the config data immediately with the submitted values
-      setConfigData(prev => ({
+      setConfigData((prev) => ({
         ...prev,
         sensorName: configData.sensorName,
         machineNumber: configData.machineNumber,
@@ -634,75 +766,95 @@ export default function SensorDetailPage() {
         image_url: configData.image_url,
         hAxisEnabled: configData.hAxisEnabled,
         vAxisEnabled: configData.vAxisEnabled,
-        aAxisEnabled: configData.aAxisEnabled
-      }))
-      
+        aAxisEnabled: configData.aAxisEnabled,
+      }));
+
       // Close modal after a short delay to show success message
       setTimeout(() => {
-        setConfigModalOpen(false)
-        setConfigError(null)
-        setConfigSuccess(null)
-        setConfigLoading(false)
-      }, 1000)
+        setConfigModalOpen(false);
+        setConfigError(null);
+        setConfigSuccess(null);
+        setConfigLoading(false);
+      }, 1000);
     } catch (error) {
       // Error updating sensor configuration
-      setConfigError('Error updating sensor configuration')
+      setConfigError("Error updating sensor configuration");
     } finally {
-      setConfigLoading(false)
+      setConfigLoading(false);
     }
-  }
+  };
 
-  const handleConfigChange = useCallback((field: string, value: string | number | boolean) => {
-    setConfigData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }, [])
+  const handleConfigChange = useCallback(
+    (field: string, value: string | number | boolean) => {
+      setConfigData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    },
+    []
+  );
 
   // Use utility function for card background color - use configData for threveold values
-  const getCardBackgroundColorCallback = useCallback((velocityValue: number) => {
-    console.log("Calculating card background color with velocity:", velocityValue)
-    // Use configData for threshold values since we fetch complete config from API
-    // Use the same fallback logic as the main page for consistency
-    
-    const sensorConfig: SensorConfig = {
-      thresholdMin: configData.thresholdMin ? Number(configData.thresholdMin) : 0.1,
-      thresholdMedium: configData.thresholdMedium ? Number(configData.thresholdMedium) : 0.125,
-      thresholdMax: configData.thresholdMax ? Number(configData.thresholdMax) : 0.15,
-      machineClass: configData.machineClass || undefined
-    }
+  const getCardBackgroundColorCallback = useCallback(
+    (velocityValue: number) => {
+      console.log(
+        "Calculating card background color with velocity:",
+        velocityValue
+      );
+      // Use configData for threshold values since we fetch complete config from API
+      // Use the same fallback logic as the main page for consistency
 
-    
-    return getCardBackgroundColor(velocityValue, sensorConfig)
-  }, [configData])
+      const sensorConfig: SensorConfig = {
+        thresholdMin: configData.thresholdMin
+          ? Number(configData.thresholdMin)
+          : 0.1,
+        thresholdMedium: configData.thresholdMedium
+          ? Number(configData.thresholdMedium)
+          : 0.125,
+        thresholdMax: configData.thresholdMax
+          ? Number(configData.thresholdMax)
+          : 0.15,
+        machineClass: configData.machineClass || undefined,
+      };
+
+      return getCardBackgroundColor(velocityValue, sensorConfig);
+    },
+    [configData]
+  );
 
   // คำนวณสถิติการสั่นสะเทือนเมื่อข้อมูลเซ็นเซอร์เปลี่ยนแปลง
   useEffect(() => {
     if (sensorLastData?.data) {
-      const { h, v, a } = sensorLastData.data
+      const { h, v, a } = sensorLastData.data;
 
       // ตรวจสอบว่ามีข้อมูลอาร์เรย์หรือไม่
-      if (Array.isArray(h) && Array.isArray(v) && Array.isArray(a) && h.length > 0) {
-        const stats = calculateVibrationStats(h, v, a)
-        setVibrationStats(stats)
+      if (
+        Array.isArray(h) &&
+        Array.isArray(v) &&
+        Array.isArray(a) &&
+        h.length > 0
+      ) {
+        const stats = calculateVibrationStats(h, v, a);
+        setVibrationStats(stats);
       } else {
         // ใช้ค่าเดี่ยวถ้าไม่มีข้อมูลอาร์เรย์
-        const hG = typeof h === "number" ? h : 0
-        const vG = typeof v === "number" ? v : 0
-        const aG = typeof a === "number" ? a : 0
+        const hG = typeof h === "number" ? h : 0;
+        const vG = typeof v === "number" ? v : 0;
+        const aG = typeof a === "number" ? a : 0;
 
-        const rmsTotal = Math.sqrt((hG * hG + vG * vG + aG * aG) / 3)
-        const peakTotal = Math.max(Math.abs(hG), Math.abs(vG), Math.abs(aG))
-        const status = rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal"
+        const rmsTotal = Math.sqrt((hG * hG + vG * vG + aG * aG) / 3);
+        const peakTotal = Math.max(Math.abs(hG), Math.abs(vG), Math.abs(aG));
+        const status =
+          rmsTotal > 0.8 ? "Critical" : rmsTotal > 0.5 ? "Warning" : "Normal";
 
         setVibrationStats({
           rms: rmsTotal.toFixed(3),
           peak: peakTotal.toFixed(3),
           status,
-        })
+        });
       }
     }
-  }, [sensorLastData])
+  }, [sensorLastData]);
 
   // Pre-calculate all chart data for all axes and units
   const allChartData = useMemo(() => {
@@ -717,8 +869,8 @@ export default function SensorDetailPage() {
         hasData: false,
         h: {},
         v: {},
-        a: {}
-      }
+        a: {},
+      };
     }
 
     const totalTime = configData.lor / configData.fmax;
@@ -728,17 +880,26 @@ export default function SensorDetailPage() {
     const axes = {
       h: sensorLastData.data.h,
       v: sensorLastData.data.v,
-      a: sensorLastData.data.a
+      a: sensorLastData.data.a,
     };
 
-    const units = ["Acceleration (G)", "Acceleration (mm/s²)", "Velocity (mm/s)"];
+    const units = [
+      "Acceleration (G)",
+      "Acceleration (mm/s²)",
+      "Velocity (mm/s)",
+    ];
     const result: any = { hasData: true };
 
     // Pre-calculate for all combinations of axes and units
     Object.entries(axes).forEach(([axisKey, axisData]) => {
       result[axisKey] = {};
-      units.forEach(unit => {
-        result[axisKey][unit] = prepareChartData(axisData, unit, timeInterval, configData);
+      units.forEach((unit) => {
+        result[axisKey][unit] = prepareChartData(
+          axisData,
+          unit,
+          timeInterval,
+          configData
+        );
       });
     });
 
@@ -761,20 +922,20 @@ export default function SensorDetailPage() {
         hasData: false,
         timeData: null,
         freqData: null,
-      }
+      };
     }
 
     // Map axis selection to data key
-    const axisKey = selectedAxis === "H-axis" ? "h" : 
-                   selectedAxis === "V-axis" ? "v" : "a";
+    const axisKey =
+      selectedAxis === "H-axis" ? "h" : selectedAxis === "V-axis" ? "v" : "a";
 
     const selectedData = allChartData[axisKey][selectedUnit];
 
     return {
       hasData: true,
       ...selectedData,
-    }
-  }, [allChartData, selectedAxis, selectedUnit])
+    };
+  }, [allChartData, selectedAxis, selectedUnit]);
 
   // Use real data if available, otherwise use sensor data or fallback
   const currentData = sensorLastData?.data || {
@@ -786,78 +947,91 @@ export default function SensorDetailPage() {
     datetime: sensor?.lastUpdated || new Date().toISOString(),
     rssi: 0,
     flag: "",
-  }
+  };
 
   // Ensure all values are numbers
-  const safeTemp = Number(currentData.temperature) || 0
-  const safeBattery = Number(currentData.battery) || 0
+  const safeTemp = Number(currentData.temperature) || 0;
+  const safeBattery = Number(currentData.battery) || 0;
 
   const vibrationData = useMemo(() => {
-    if (loading || !sensorLastData) return { hasData: false, timeData: null, freqData: null };
+    if (loading || !sensorLastData)
+      return { hasData: false, timeData: null, freqData: null };
     return prepareVibrationData();
-  }, [prepareVibrationData, loading, sensorLastData])
+  }, [prepareVibrationData, loading, sensorLastData]);
 
   // Extract axis stats from pre-calculated data
   const xStats = useMemo(() => {
-    if (loading || !allChartData.hasData) return { 
-      accelTopPeak: "0.000", 
-      velocityTopPeak: "0.000", 
-      dominantFreq: "0.000",
-      topPeaks: { G: [], mmPerS2: [], mmPerS: [] }
-    };
-    
+    if (loading || !allChartData.hasData)
+      return {
+        accelTopPeak: "0.000",
+        velocityTopPeak: "0.000",
+        dominantFreq: "0.000",
+        topPeaks: { G: [], mmPerS2: [], mmPerS: [] },
+      };
+
     const hData = allChartData.h;
     return {
-      accelTopPeak: hData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
-      velocityTopPeak: hData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
-      dominantFreq: hData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
+      accelTopPeak:
+        hData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      velocityTopPeak:
+        hData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      dominantFreq:
+        hData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
       topPeaks: {
         G: hData["Acceleration (G)"]?.topPeaks || [],
         mmPerS2: hData["Acceleration (mm/s²)"]?.topPeaks || [],
-        mmPerS: hData["Velocity (mm/s)"]?.topPeaks || []
-      }
+        mmPerS: hData["Velocity (mm/s)"]?.topPeaks || [],
+      },
     };
   }, [allChartData, loading]);
-  
+
   const yStats = useMemo(() => {
-    if (loading || !allChartData.hasData) return { 
-      accelTopPeak: "0.000", 
-      velocityTopPeak: "0.000", 
-      dominantFreq: "0.000",
-      topPeaks: { G: [], mmPerS2: [], mmPerS: [] }
-    };
-    
+    if (loading || !allChartData.hasData)
+      return {
+        accelTopPeak: "0.000",
+        velocityTopPeak: "0.000",
+        dominantFreq: "0.000",
+        topPeaks: { G: [], mmPerS2: [], mmPerS: [] },
+      };
+
     const vData = allChartData.v;
     return {
-      accelTopPeak: vData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
-      velocityTopPeak: vData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
-      dominantFreq: vData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
+      accelTopPeak:
+        vData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      velocityTopPeak:
+        vData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      dominantFreq:
+        vData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
       topPeaks: {
         G: vData["Acceleration (G)"]?.topPeaks || [],
         mmPerS2: vData["Acceleration (mm/s²)"]?.topPeaks || [],
-        mmPerS: vData["Velocity (mm/s)"]?.topPeaks || []
-      }
+        mmPerS: vData["Velocity (mm/s)"]?.topPeaks || [],
+      },
     };
   }, [allChartData, loading]);
-  
+
   const zStats = useMemo(() => {
-    if (loading || !allChartData.hasData) return { 
-      accelTopPeak: "0.000", 
-      velocityTopPeak: "0.000", 
-      dominantFreq: "0.000",
-      topPeaks: { G: [], mmPerS2: [], mmPerS: [] }
-    };
-    
+    if (loading || !allChartData.hasData)
+      return {
+        accelTopPeak: "0.000",
+        velocityTopPeak: "0.000",
+        dominantFreq: "0.000",
+        topPeaks: { G: [], mmPerS2: [], mmPerS: [] },
+      };
+
     const aData = allChartData.a;
     return {
-      accelTopPeak: aData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
-      velocityTopPeak: aData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
-      dominantFreq: aData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
+      accelTopPeak:
+        aData["Acceleration (G)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      velocityTopPeak:
+        aData["Velocity (mm/s)"]?.topPeaks?.[0]?.peak?.toFixed(2) || "0.000",
+      dominantFreq:
+        aData["Velocity (mm/s)"]?.topPeaks?.[0]?.frequency || "0.000",
       topPeaks: {
         G: aData["Acceleration (G)"]?.topPeaks || [],
         mmPerS2: aData["Acceleration (mm/s²)"]?.topPeaks || [],
-        mmPerS: aData["Velocity (mm/s)"]?.topPeaks || []
-      }
+        mmPerS: aData["Velocity (mm/s)"]?.topPeaks || [],
+      },
     };
   }, [allChartData, loading]);
 
@@ -866,111 +1040,127 @@ export default function SensorDetailPage() {
     if (sensorLastData?.name && !loading) {
       // console.log(`[SENSOR DETAIL ${sensorLastData.name}] PEAK VELOCITIES - H: ${xStats.velocityTopPeak} mm/s | V: ${yStats.velocityTopPeak} mm/s | A: ${zStats.velocityTopPeak} mm/s`);
     }
-  }, [xStats.velocityTopPeak, yStats.velocityTopPeak, zStats.velocityTopPeak, sensorLastData?.name, loading]);
+  }, [
+    xStats.velocityTopPeak,
+    yStats.velocityTopPeak,
+    zStats.velocityTopPeak,
+    sensorLastData?.name,
+    loading,
+  ]);
 
-  const timeChartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: "Time (s)",
-          color: "#888",
+  const timeChartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Time (s)",
+            color: "#888",
+          },
+          grid: {
+            color: "rgba(255, 255, 255, 0.1)",
+          },
+          ticks: {
+            color: "#888",
+          },
         },
-        grid: {
-          color: "rgba(255, 255, 255, 0.1)",
-        },
-        ticks: {
-          color: "#888",
+        y: {
+          title: {
+            display: true,
+            text: vibrationData?.yAxisLabel || "Acceleration (G)",
+            color: "#888",
+          },
+          grid: {
+            color: "rgba(255, 255, 255, 0.1)",
+          },
+          ticks: {
+            color: "#888",
+          },
         },
       },
-      y: {
-        title: {
-          display: true,
-          text: vibrationData?.yAxisLabel || "Acceleration (G)",
-          color: "#888",
-        },
-        grid: {
-          color: "rgba(255, 255, 255, 0.1)",
-        },
-        ticks: {
-          color: "#888",
-        },
-      },
-    },
-    plugins: {
-      zoom: {
+      plugins: {
         zoom: {
-          wheel: {
-            enabled: true,
+          zoom: {
+            wheel: {
+              enabled: true,
+            },
+            pinch: {
+              enabled: true,
+            },
+            drag: {
+              enabled: true,
+              mode: "x" as const,
+            },
+            mode: "x" as const,
           },
-          pinch: {
-            enabled: true
-          },
-          drag: {
-            enabled: true,
-            mode: 'x' as const,
-          },
-          mode: 'x' as const,
-        }},
+        },
         legend: {
-        display: false,
+          display: false,
+        },
       },
-    },
-  }), [vibrationData?.yAxisLabel])
+    }),
+    [vibrationData?.yAxisLabel]
+  );
 
-  const freqChartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: "Frequency (Hz)",
-          color: "#888",
+  const freqChartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Frequency (Hz)",
+            color: "#888",
+          },
+          grid: {
+            color: "rgba(255, 255, 255, 0.1)",
+          },
+          ticks: {
+            color: "#888",
+          },
         },
-        grid: {
-          color: "rgba(255, 255, 255, 0.1)",
-        },
-        ticks: {
-          color: "#888",
+        y: {
+          title: {
+            display: true,
+            text: vibrationData?.yAxisLabel
+              ? `${vibrationData.yAxisLabel} Magnitude`
+              : "Magnitude",
+            color: "#888",
+          },
+          grid: {
+            color: "rgba(255, 255, 255, 0.1)",
+          },
+          ticks: {
+            color: "#888",
+          },
         },
       },
-      y: {
-        title: {
-          display: true,
-          text: vibrationData?.yAxisLabel ? `${vibrationData.yAxisLabel} Magnitude` : "Magnitude",
-          color: "#888",
-        },
-        grid: {
-          color: "rgba(255, 255, 255, 0.1)",
-        },
-        ticks: {
-          color: "#888",
-        },
-      },
-    },
-    plugins: {
-      zoom: {
+      plugins: {
         zoom: {
-          wheel: {
-            enabled: true,
+          zoom: {
+            wheel: {
+              enabled: true,
+            },
+            pinch: {
+              enabled: true,
+            },
+            drag: {
+              enabled: true,
+              mode: "x" as const,
+            },
+            mode: "x" as const,
           },
-          pinch: {
-            enabled: true
-          },
-          drag: {
-            enabled: true,
-            mode: 'x' as const,
-          },
-          mode: 'x' as const,
-        }},
-      legend: {
-        display: false,
+        },
+        legend: {
+          display: false,
+        },
       },
-    },
-  }), [vibrationData?.yAxisLabel])
+    }),
+    [vibrationData?.yAxisLabel]
+  );
 
   // Early returns after all hooks
   if (!mounted || loading) {
@@ -978,18 +1168,22 @@ export default function SensorDetailPage() {
       <div className="flex h-screen items-center justify-center bg-black">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
       </div>
-    )
+    );
   }
 
   if (!sensor) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-black text-white">
         <h2 className="text-2xl font-bold">Sensor not found</h2>
-        <Button variant="outline" className="mt-4" onClick={() => router.push("/")}>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push("/")}
+        >
           Back to Sensors
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -1006,44 +1200,66 @@ export default function SensorDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Sensor
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Sensor: {sensorLastData?.name || sensor.name}</h1>
+            <h1 className="text-2xl font-bold">
+              Sensor: {sensorLastData?.name || sensor.name}
+            </h1>
             <p className="text-gray-400">
-              {sensor.machine || "Monitoring Test Machine"} • {sensor.location || "Test Location"}
+              {sensor.machine || "Monitoring Test Machine"} •{" "}
+              {sensor.location || "Test Location"}
               {sensorLastData && (
-                <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-900 text-blue-300">Live Data</span>
+                <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-900 text-blue-300">
+                  Live Data
+                </span>
               )}
             </p>
-            <p className="text-sm text-gray-500">Last updated: {formatThaiDate(currentData.datetime)}</p>
+            <p className="text-sm text-gray-500">
+              Last updated: {formatThaiDate(currentData.datetime)}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="bg-transparent border-gray-700 hover:bg-gray-800">
+              <Button
+                variant="outline"
+                className="bg-transparent border-gray-700 hover:bg-gray-800"
+              >
                 <Calendar className="mr-2 h-4 w-4" />
-                {selectedDatetime ? formatDateTime(selectedDatetime) : 'Select Date'}
+                {selectedDatetime
+                  ? formatDateTime(selectedDatetime)
+                  : "Select Date"}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-gray-900 border-gray-800 max-h-[300px] overflow-y-auto">
+            <DropdownMenuContent
+              align="end"
+              className="bg-gray-900 border-gray-800 max-h-[300px] overflow-y-auto"
+            >
               {datetimes.length > 0 ? (
                 datetimes.map((datetime) => (
                   <DropdownMenuItem
                     key={datetime}
                     className="text-white hover:bg-gray-800"
                     onClick={async () => {
-                      setSelectedDatetime(datetime)
+                      setSelectedDatetime(datetime);
                       try {
-                        const response = await fetch(`https://sc.promptlabai.com/suratech/sensors/${params.id}/last-data?datetime=${encodeURIComponent(datetime)}`, {
-                          headers: { 'Accept': 'application/json' }
-                        })
+                        const response = await fetch(
+                          `${BASE_API_URL}/sensors/${params.id}/last-data?datetime=${encodeURIComponent(datetime)}`,
+                          {
+                            headers: { Accept: "application/json" },
+                          }
+                        );
                         if (response.ok) {
-                          const data = await response.json()
-                          setSensorLastData(data)
+                          const data = await response.json();
+                          setSensorLastData(data);
                         } else {
-                          setError('Failed to fetch sensor data for selected datetime')
+                          setError(
+                            "Failed to fetch sensor data for selected datetime"
+                          );
                         }
                       } catch (e) {
-                        setError('Failed to fetch sensor data for selected datetime')
+                        setError(
+                          "Failed to fetch sensor data for selected datetime"
+                        );
                       }
                     }}
                   >
@@ -1051,32 +1267,49 @@ export default function SensorDetailPage() {
                   </DropdownMenuItem>
                 ))
               ) : (
-                <DropdownMenuItem className="text-gray-500">No dates available</DropdownMenuItem>
+                <DropdownMenuItem className="text-gray-500">
+                  No dates available
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" className="bg-transparent border-gray-700 hover:bg-gray-800" onClick={() => router.push(`/sensors/${sensor.id}/history`)}>
+          <Button
+            variant="outline"
+            className="bg-transparent border-gray-700 hover:bg-gray-800"
+            onClick={() => router.push(`/sensors/${sensor.id}/history`)}
+          >
             View History
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="bg-transparent border-gray-700 hover:bg-gray-800">
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-transparent border-gray-700 hover:bg-gray-800"
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-gray-900 border-gray-800">
-              <DropdownMenuItem onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setConfigModalOpen(true)
-              }}>
+            <DropdownMenuContent
+              align="end"
+              className="bg-gray-900 border-gray-800"
+            >
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setConfigModalOpen(true);
+                }}
+              >
                 <Settings className="mr-2 h-4 w-4" />
                 Configure Sensor
               </DropdownMenuItem>
               <DropdownMenuItem>Export Data</DropdownMenuItem>
               <DropdownMenuItem>Print Report</DropdownMenuItem>
               <DropdownMenuItem>Share</DropdownMenuItem>
-              <DropdownMenuItem className="text-red-500">Delete</DropdownMenuItem>
+              <DropdownMenuItem className="text-red-500">
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1096,19 +1329,18 @@ export default function SensorDetailPage() {
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex-shrink-0 flex justify-center">
                 <div className="w-24 h-24 bg-gray-700 rounded-md flex items-center justify-center">
-                {configData.image_url && (
-                        <img 
-                          src={configData.image_url} 
-                          alt="Sensor" 
-                        />
-                    )}
+                  {configData.image_url && (
+                    <img src={configData.image_url} alt="Sensor" />
+                  )}
                 </div>
               </div>
 
               <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-lg font-semibold">Sensor Information</h2>
+                    <h2 className="text-lg font-semibold">
+                      Sensor Information
+                    </h2>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1119,7 +1351,7 @@ export default function SensorDetailPage() {
                       Edit
                     </Button>
                   </div>
-                  
+
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Serial Number</span>
@@ -1131,26 +1363,49 @@ export default function SensorDetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Machine Number</span>
-                      <span className={configData.machineNumber ? "text-white" : "text-gray-500"}>
+                      <span
+                        className={
+                          configData.machineNumber
+                            ? "text-white"
+                            : "text-gray-500"
+                        }
+                      >
                         {configData.machineNumber || "Not Set"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Installation Point</span>
-                      <span className={configData.installationPoint ? "text-white" : "text-gray-500"}>
+                      <span
+                        className={
+                          configData.installationPoint
+                            ? "text-white"
+                            : "text-gray-500"
+                        }
+                      >
                         {configData.installationPoint || "Not Set"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Machine Class</span>
-                      <span className={configData.machineClass ? "text-white" : "text-gray-500"}>
-                        {configData.machineClass ? configData.machineClass.charAt(0).toUpperCase() + configData.machineClass.slice(1) : "Not Set"}
+                      <span
+                        className={
+                          configData.machineClass
+                            ? "text-white"
+                            : "text-gray-500"
+                        }
+                      >
+                        {configData.machineClass
+                          ? configData.machineClass.charAt(0).toUpperCase() +
+                            configData.machineClass.slice(1)
+                          : "Not Set"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Note</span>
-                      <span 
-                        className={`max-w-[200px] truncate ${configData.notes ? "text-white" : "text-gray-500"}`}
+                      <span
+                        className={`max-w-[200px] truncate ${
+                          configData.notes ? "text-white" : "text-gray-500"
+                        }`}
                         title={configData.notes || "No notes"}
                       >
                         {configData.notes || "No notes"}
@@ -1165,7 +1420,9 @@ export default function SensorDetailPage() {
                     <div className="flex items-center">
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
-                          sensor.status === "offline" ? "bg-gray-900 text-gray-300" : "bg-green-900 text-green-300"
+                          sensor.status === "offline"
+                            ? "bg-gray-900 text-gray-300"
+                            : "bg-green-900 text-green-300"
                         }`}
                       >
                         {sensor.status === "offline" ? "Offline" : "OK"}
@@ -1185,7 +1442,9 @@ export default function SensorDetailPage() {
                       <span className="text-gray-400">Signal Strength</span>
                       <span className="flex items-center gap-1">
                         <span>{getSignalStrength(currentData.rssi)}</span>
-                        <span className="text-xs text-gray-500">({getSignalStrengthLabel(currentData.rssi)})</span>
+                        <span className="text-xs text-gray-500">
+                          ({getSignalStrengthLabel(currentData.rssi)})
+                        </span>
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1194,7 +1453,9 @@ export default function SensorDetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Installation Date</span>
-                      <span>{formatDate(sensor.installationDate || "2025-04-26")}</span>
+                      <span>
+                        {formatDate(sensor.installationDate || "2025-04-26")}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1209,9 +1470,16 @@ export default function SensorDetailPage() {
             <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-4">
                 <h3 className="text-gray-400 mb-2">Temperature Statistics</h3>
-                <div className="text-2xl font-bold">{safeTemp.toFixed(1)}°C</div>
+                <div className="text-2xl font-bold">
+                  {safeTemp.toFixed(1)}°C
+                </div>
                 <div className="text-sm text-gray-500">
-                  Status: {safeTemp > (sensorLastData?.alarm_ths || 35) ? "Critical" : safeTemp > (sensorLastData?.alarm_ths || 35) * 0.7 ? "Warning" : "Normal"}
+                  Status:{" "}
+                  {safeTemp > (sensorLastData?.alarm_ths || 35)
+                    ? "Critical"
+                    : safeTemp > (sensorLastData?.alarm_ths || 35) * 0.7
+                    ? "Warning"
+                    : "Normal"}
                 </div>
                 {sensorLastData?.alarm_ths && (
                   <div className="text-xs text-gray-600 mt-1">
@@ -1220,38 +1488,52 @@ export default function SensorDetailPage() {
                 )}
               </CardContent>
             </Card>
-            
+
             {/* Conditionally show H-axis card */}
             {/* <div className="bg-green-500"> Mock color</div>
             <div className="bg-[#ffff00]"> Mock color</div>
             <div className="bg-[#ff0000]"> Mock color</div>
             <div className="bg-[#ff6600]"> Mock color</div> */}
             {configData.hAxisEnabled && (
-              <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(xStats.velocityTopPeak))}`}>
+              <Card
+                className={`border-gray-800 ${getCardBackgroundColorCallback(
+                  parseFloat(xStats.velocityTopPeak)
+                )}`}
+              >
                 <CardContent className="p-4">
                   <h3 className=" mb-2">Horizontal (H)</h3>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="">Acceleration</span>
-                      <span className="text-right ">{xStats.accelTopPeak}G</span>
+                      <span className="text-right ">
+                        {xStats.accelTopPeak}G
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Velocity</span>
-                      <span className="text-right ">{xStats.velocityTopPeak} mm/s</span>
+                      <span className="text-right ">
+                        {xStats.velocityTopPeak} mm/s
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Dominant Frequency</span>
-                      <span className="text-right ">{xStats.dominantFreq} Hz</span>
+                      <span className="text-right ">
+                        {xStats.dominantFreq} Hz
+                      </span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
-            
+
             {/* Conditionally show V-axis card */}
             {configData.vAxisEnabled && (
-              <Card className={`border-gray-800
-              ${getCardBackgroundColorCallback(parseFloat(yStats.velocityTopPeak))}`}>
+              <Card
+                className={`border-gray-800
+              ${getCardBackgroundColorCallback(
+                parseFloat(yStats.velocityTopPeak)
+              )}`}
+              >
                 {/* {getCardBackgroundColorCallback(parseFloat(yStats.velocityTopPeak))} */}
                 <CardContent className="p-4">
                   <h3 className=" mb-2">Vertical (V)</h3>
@@ -1262,34 +1544,48 @@ export default function SensorDetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="">Velocity</span>
-                      <span className="text-right">{yStats.velocityTopPeak} mm/s</span>
+                      <span className="text-right">
+                        {yStats.velocityTopPeak} mm/s
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Dominant Frequency</span>
-                      <span className="text-right ">{yStats.dominantFreq} Hz</span>
+                      <span className="text-right ">
+                        {yStats.dominantFreq} Hz
+                      </span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
-            
+
             {/* Conditionally show A-axis card */}
             {configData.aAxisEnabled && (
-              <Card className={`border-gray-800 ${getCardBackgroundColorCallback(parseFloat(zStats.velocityTopPeak))}`}>
+              <Card
+                className={`border-gray-800 ${getCardBackgroundColorCallback(
+                  parseFloat(zStats.velocityTopPeak)
+                )}`}
+              >
                 <CardContent className="p-4">
                   <h3 className="mb-2">Axial (A)</h3>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="">Acceleration</span>
-                      <span className="text-right ">{zStats.accelTopPeak}G</span>
+                      <span className="text-right ">
+                        {zStats.accelTopPeak}G
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Velocity</span>
-                      <span className="text-right ">{zStats.velocityTopPeak} mm/s</span>
+                      <span className="text-right ">
+                        {zStats.velocityTopPeak} mm/s
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="">Dominant Frequency</span>
-                      <span className="text-right ">{zStats.dominantFreq} Hz</span>
+                      <span className="text-right ">
+                        {zStats.dominantFreq} Hz
+                      </span>
                     </div>
                   </div>
                 </CardContent>
@@ -1300,7 +1596,9 @@ export default function SensorDetailPage() {
           {/* Vibration Analysis Section */}
           <Card className="bg-gray-900 border-gray-800">
             <CardContent className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Vibration Frequency Analysis</h2>
+              <h2 className="text-lg font-semibold mb-4">
+                Vibration Frequency Analysis
+              </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <Select value={selectedAxis} onValueChange={setSelectedAxis}>
@@ -1309,7 +1607,9 @@ export default function SensorDetailPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
                     {configData.hAxisEnabled && (
-                      <SelectItem value="H-axis">H-axis (Horizontal)</SelectItem>
+                      <SelectItem value="H-axis">
+                        H-axis (Horizontal)
+                      </SelectItem>
                     )}
                     {configData.vAxisEnabled && (
                       <SelectItem value="V-axis">V-axis (Vertical)</SelectItem>
@@ -1325,9 +1625,15 @@ export default function SensorDetailPage() {
                     <SelectValue placeholder="Select unit" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    <SelectItem value="Acceleration (G)">Acceleration (G)</SelectItem>
-                    <SelectItem value="Acceleration (mm/s²)">Acceleration (mm/s²)</SelectItem>
-                    <SelectItem value="Velocity (mm/s)">Velocity (mm/s)</SelectItem>
+                    <SelectItem value="Acceleration (G)">
+                      Acceleration (G)
+                    </SelectItem>
+                    <SelectItem value="Acceleration (mm/s²)">
+                      Acceleration (mm/s²)
+                    </SelectItem>
+                    <SelectItem value="Velocity (mm/s)">
+                      Velocity (mm/s)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1336,9 +1642,11 @@ export default function SensorDetailPage() {
                 if (!vibrationData.hasData) {
                   return (
                     <div className="flex flex-col items-center justify-center h-64 bg-gray-800 border border-gray-700 rounded-md">
-                      <p className="text-gray-400">No vibration data available for this sensor</p>
+                      <p className="text-gray-400">
+                        No vibration data available for this sensor
+                      </p>
                     </div>
-                  )
+                  );
                 }
 
                 // Calculate statistics from real data
@@ -1346,38 +1654,55 @@ export default function SensorDetailPage() {
                   selectedAxis === "H-axis"
                     ? sensorLastData?.data?.h || []
                     : selectedAxis === "V-axis"
-                      ? sensorLastData?.data?.v || []
-                      : sensorLastData?.data?.a || []
+                    ? sensorLastData?.data?.v || []
+                    : sensorLastData?.data?.a || [];
 
-                const absValues = axisData.map(Math.abs)
-                const max = Math.max(...absValues)
-                const min = Math.min(...absValues)
+                const absValues = axisData.map(Math.abs);
+                const max = Math.max(...absValues);
+                const min = Math.min(...absValues);
 
                 // Scale values for better display
-                const scaleFactor = 1000
+                const scaleFactor = 1000;
 
                 return (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
-                        <h4 className="text-xl font-medium mb-6">Overall Statistics</h4>
+                      <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
+                        <h4 className="text-xl font-medium mb-6">
+                          Overall Statistics
+                        </h4>
                         <div className="space-y-6">
                           <div className="flex justify-between items-center">
                             <span className="text-gray-400 text-lg">RMS :</span>
-                            <span className="text-lg">{vibrationData.rmsValue} {vibrationData.yAxisLabel}</span>
+                            <span className="text-lg">
+                              {vibrationData.rmsValue}{" "}
+                              {vibrationData.yAxisLabel}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-gray-400 text-lg">Peak :</span>
-                            <span className="text-lg">{vibrationData.peakValue} {vibrationData.yAxisLabel}</span>
+                            <span className="text-gray-400 text-lg">
+                              Peak :
+                            </span>
+                            <span className="text-lg">
+                              {vibrationData.peakValue}{" "}
+                              {vibrationData.yAxisLabel}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-gray-400 text-lg">Peak to Peak :</span>
-                            <span className="text-lg">{vibrationData.peakToPeakValue} {vibrationData.yAxisLabel}</span>
+                            <span className="text-gray-400 text-lg">
+                              Peak to Peak :
+                            </span>
+                            <span className="text-lg">
+                              {vibrationData.peakToPeakValue}{" "}
+                              {vibrationData.yAxisLabel}
+                            </span>
                           </div>
                         </div>
                       </div>
                       <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
-                        <h4 className="text-xl font-medium mb-6">Top 5 Peaks</h4>
+                        <h4 className="text-xl font-medium mb-6">
+                          Top 5 Peaks
+                        </h4>
                         <div className="overflow-x-auto">
                           <table className="min-w-full text-center table-fixed">
                             <thead>
@@ -1387,12 +1712,17 @@ export default function SensorDetailPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {vibrationData.topPeaks && vibrationData.topPeaks.map((row, i) => (
-                                <tr key={i}>
-                                  <td className="w-1/2 px-4 py-2">{row.rms}</td>
-                                  <td className="w-1/2 px-4 py-2">{row.frequency} Hz</td>
-                                </tr>
-                              ))}
+                              {vibrationData.topPeaks &&
+                                vibrationData.topPeaks.map((row, i) => (
+                                  <tr key={i}>
+                                    <td className="w-1/2 px-4 py-2">
+                                      {row.rms}
+                                    </td>
+                                    <td className="w-1/2 px-4 py-2">
+                                      {row.frequency} Hz
+                                    </td>
+                                  </tr>
+                                ))}
                             </tbody>
                           </table>
                         </div>
@@ -1402,7 +1732,9 @@ export default function SensorDetailPage() {
                     {!configModalOpen && (
                       <>
                         <div className="mt-6">
-                          <h3 className="text-lg font-medium mb-4">Time domain</h3>
+                          <h3 className="text-lg font-medium mb-4">
+                            Time domain
+                          </h3>
                           <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
                             {vibrationData.timeData && (
                               <Line
@@ -1415,7 +1747,9 @@ export default function SensorDetailPage() {
                                       ...timeChartOptions.scales.y,
                                       title: {
                                         ...timeChartOptions.scales.y.title,
-                                        text: vibrationData.yAxisLabel || "Acceleration (G)",
+                                        text:
+                                          vibrationData.yAxisLabel ||
+                                          "Acceleration (G)",
                                       },
                                     },
                                   },
@@ -1426,7 +1760,9 @@ export default function SensorDetailPage() {
                         </div>
 
                         <div className="mt-6">
-                          <h3 className="text-lg font-medium mb-4">Frequency domain</h3>
+                          <h3 className="text-lg font-medium mb-4">
+                            Frequency domain
+                          </h3>
                           <div className="h-64 bg-gray-800 border border-gray-700 rounded-md p-2">
                             {vibrationData.freqData && (
                               <Line
@@ -1453,7 +1789,7 @@ export default function SensorDetailPage() {
                       </>
                     )}
                   </>
-                )
+                );
               })()}
             </CardContent>
           </Card>
@@ -1464,40 +1800,40 @@ export default function SensorDetailPage() {
       {configModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/80"
             onClick={() => {
-              setConfigModalOpen(false)
-              setConfigError(null)
-              setConfigSuccess(null)
-              setConfigLoading(false)
+              setConfigModalOpen(false);
+              setConfigError(null);
+              setConfigSuccess(null);
+              setConfigLoading(false);
             }}
           />
-          
+
           {/* Modal Content */}
           <div className="relative bg-gray-900 border border-gray-800 text-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Configure Sensor</h2>
               <button
                 onClick={() => {
-                  setConfigModalOpen(false)
-                  setConfigError(null)
-                  setConfigSuccess(null)
-                  setConfigLoading(false)
+                  setConfigModalOpen(false);
+                  setConfigError(null);
+                  setConfigSuccess(null);
+                  setConfigLoading(false);
                 }}
                 className="text-gray-400 hover:text-white"
               >
                 ✕
               </button>
             </div>
-            
+
             <form onSubmit={handleConfigSubmit} className="space-y-4">
               {configError && (
                 <div className="bg-red-900 border border-red-700 text-red-100 px-3 py-2 rounded-md text-sm">
                   {configError}
                 </div>
               )}
-              
+
               {configSuccess && (
                 <div className="bg-green-900 border border-green-700 text-green-100 px-3 py-2 rounded-md text-sm">
                   {configSuccess}
@@ -1507,25 +1843,35 @@ export default function SensorDetailPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="sensorName" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="sensorName"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       Sensor Name
                     </Label>
                     <Input
                       id="sensorName"
                       value={configData.sensorName}
-                      onChange={(e) => handleConfigChange('sensorName', e.target.value)}
+                      onChange={(e) =>
+                        handleConfigChange("sensorName", e.target.value)
+                      }
                       className="bg-gray-800 border-gray-700 text-white"
                       placeholder="e.g. Accelerometer 1"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="machineNumber" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="machineNumber"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       Machine Number
                     </Label>
                     <Input
                       id="machineNumber"
                       value={configData.machineNumber}
-                      onChange={(e) => handleConfigChange('machineNumber', e.target.value)}
+                      onChange={(e) =>
+                        handleConfigChange("machineNumber", e.target.value)
+                      }
                       className="bg-gray-800 border-gray-700 text-white"
                       placeholder="e.g. M-001"
                     />
@@ -1533,25 +1879,35 @@ export default function SensorDetailPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="installationPoint" className="text-sm font-medium text-gray-300">
+                  <Label
+                    htmlFor="installationPoint"
+                    className="text-sm font-medium text-gray-300"
+                  >
                     Installation Point
                   </Label>
                   <Input
                     id="installationPoint"
                     value={configData.installationPoint}
-                    onChange={(e) => handleConfigChange('installationPoint', e.target.value)}
+                    onChange={(e) =>
+                      handleConfigChange("installationPoint", e.target.value)
+                    }
                     className="bg-gray-800 border-gray-700 text-white"
                     placeholder="e.g. Bearing 1"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="machineClass" className="text-sm font-medium text-gray-300">
+                  <Label
+                    htmlFor="machineClass"
+                    className="text-sm font-medium text-gray-300"
+                  >
                     Machine Class
                   </Label>
                   <Select
                     value={configData.machineClass}
-                    onValueChange={(value) => handleConfigChange('machineClass', value)}
+                    onValueChange={(value) =>
+                      handleConfigChange("machineClass", value)
+                    }
                   >
                     <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                       <SelectValue placeholder="Select class" />
@@ -1559,8 +1915,12 @@ export default function SensorDetailPage() {
                     <SelectContent className="bg-gray-800 border-gray-700">
                       <SelectItem value="small">Small Machines</SelectItem>
                       <SelectItem value="medium">Medium Machines</SelectItem>
-                      <SelectItem value="largeRigid">Large rigid Machines</SelectItem>
-                      <SelectItem value="largeSoft">Large soft Machines</SelectItem>
+                      <SelectItem value="largeRigid">
+                        Large rigid Machines
+                      </SelectItem>
+                      <SelectItem value="largeSoft">
+                        Large soft Machines
+                      </SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1568,12 +1928,17 @@ export default function SensorDetailPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="fmax" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="fmax"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       Max Frequency (Hz)
                     </Label>
                     <Select
                       value={configData.fmax.toString()}
-                      onValueChange={(value) => handleConfigChange('fmax', Number(value))}
+                      onValueChange={(value) =>
+                        handleConfigChange("fmax", Number(value))
+                      }
                     >
                       <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                         <SelectValue placeholder="Select frequency" />
@@ -1587,12 +1952,17 @@ export default function SensorDetailPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="g_scale" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="g_scale"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       G-Scale
                     </Label>
                     <Select
                       value={configData.g_scale.toString()}
-                      onValueChange={(value) => handleConfigChange('g_scale', Number(value))}
+                      onValueChange={(value) =>
+                        handleConfigChange("g_scale", Number(value))
+                      }
                     >
                       <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                         <SelectValue placeholder="Select G-Scale" />
@@ -1609,12 +1979,17 @@ export default function SensorDetailPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="lor" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="lor"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       LOR
                     </Label>
                     <Select
                       value={configData.lor.toString()}
-                      onValueChange={(value) => handleConfigChange('lor', Number(value))}
+                      onValueChange={(value) =>
+                        handleConfigChange("lor", Number(value))
+                      }
                     >
                       <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                         <SelectValue placeholder="Select LOR" />
@@ -1630,14 +2005,22 @@ export default function SensorDetailPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="time_interval" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="time_interval"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       Time Interval (Minutes)
                     </Label>
                     <Input
                       id="time_interval"
                       type="number"
                       value={configData.time_interval}
-                      onChange={(e) => handleConfigChange('time_interval', Number(e.target.value))}
+                      onChange={(e) =>
+                        handleConfigChange(
+                          "time_interval",
+                          Number(e.target.value)
+                        )
+                      }
                       className="bg-gray-800 border-gray-700 text-white"
                       min="1"
                       max="3600"
@@ -1648,21 +2031,29 @@ export default function SensorDetailPage() {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <Label htmlFor="thresholdMin" className="text-sm font-medium text-gray-300">
-                      Warning Threshold (mm/s) 
+                    <Label
+                      htmlFor="thresholdMin"
+                      className="text-sm font-medium text-gray-300"
+                    >
+                      Warning Threshold (mm/s)
                     </Label>
                     <Input
                       id="thresholdMin"
                       type="number"
                       step="0.1"
                       value={configData.thresholdMin}
-                      onChange={(e) => handleConfigChange('thresholdMin', e.target.value)}
+                      onChange={(e) =>
+                        handleConfigChange("thresholdMin", e.target.value)
+                      }
                       className="bg-gray-800 border-gray-700 text-white"
                       placeholder="e.g. 1.0"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="thresholdMedium" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="thresholdMedium"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       Concern Threshold (mm/s)
                     </Label>
                     <Input
@@ -1670,13 +2061,18 @@ export default function SensorDetailPage() {
                       type="number"
                       step="0.1"
                       value={configData.thresholdMedium}
-                      onChange={(e) => handleConfigChange('thresholdMedium', e.target.value)}
+                      onChange={(e) =>
+                        handleConfigChange("thresholdMedium", e.target.value)
+                      }
                       className="bg-gray-800 border-gray-700 text-white"
                       placeholder="e.g. 2.0"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="thresholdMax" className="text-sm font-medium text-gray-300">
+                    <Label
+                      htmlFor="thresholdMax"
+                      className="text-sm font-medium text-gray-300"
+                    >
                       Damage Threshold (mm/s)
                     </Label>
                     <Input
@@ -1684,7 +2080,9 @@ export default function SensorDetailPage() {
                       type="number"
                       step="0.1"
                       value={configData.thresholdMax}
-                      onChange={(e) => handleConfigChange('thresholdMax', e.target.value)}
+                      onChange={(e) =>
+                        handleConfigChange("thresholdMax", e.target.value)
+                      }
                       className="bg-gray-800 border-gray-700 text-white"
                       placeholder="e.g. 3.0"
                     />
@@ -1692,7 +2090,10 @@ export default function SensorDetailPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="alarm_ths" className="text-sm font-medium text-gray-300">
+                  <Label
+                    htmlFor="alarm_ths"
+                    className="text-sm font-medium text-gray-300"
+                  >
                     Alarm Threshold (G)
                   </Label>
                   <Input
@@ -1700,20 +2101,27 @@ export default function SensorDetailPage() {
                     type="number"
                     step="0.1"
                     value={configData.alarm_ths}
-                    onChange={(e) => handleConfigChange('alarm_ths', Number(e.target.value))}
+                    onChange={(e) =>
+                      handleConfigChange("alarm_ths", Number(e.target.value))
+                    }
                     className="bg-gray-800 border-gray-700 text-white"
                     placeholder="e.g. 5.0"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="notes" className="text-sm font-medium text-gray-300">
+                  <Label
+                    htmlFor="notes"
+                    className="text-sm font-medium text-gray-300"
+                  >
                     Notes
                   </Label>
                   <Input
                     id="notes"
                     value={configData.notes}
-                    onChange={(e) => handleConfigChange('notes', e.target.value)}
+                    onChange={(e) =>
+                      handleConfigChange("notes", e.target.value)
+                    }
                     className="bg-gray-800 border-gray-700 text-white"
                     placeholder="Additional information"
                   />
@@ -1726,32 +2134,35 @@ export default function SensorDetailPage() {
                   </Label>
                   <div className="mt-2 space-y-3">
                     {/* Current Image Display */}
-                    {configData.image_url && (
+                    {configData.image_url && !imagePreview && (
                       <div className="flex items-center space-x-3">
-                        <img 
-                          src={configData.image_url} 
-                          alt="Sensor" 
+                        <img
+                          src={configData.image_url}
+                          alt="Sensor"
                           className="w-16 h-16 object-cover rounded border border-gray-600"
                         />
-                        <span className="text-sm text-gray-400">Current image</span>
+                        <span className="text-sm text-gray-400">
+                          Current image
+                        </span>
                       </div>
                     )}
-                    
+
                     {/* Image Upload */}
                     <div className="flex items-center space-x-3">
                       <input
                         type="file"
                         accept="image/*"
                         onChange={(e) => {
-                          const file = e.target.files?.[0]
+                          const file = e.target.files?.[0];
                           if (file) {
-                            setSelectedImage(file)
-                            // Create preview
-                            const reader = new FileReader()
+                            // อ่านไฟล์เป็น Data URL เพื่อส่งให้ Cropper
+                            const reader = new FileReader();
                             reader.onload = (e) => {
-                              setImagePreview(e.target?.result as string)
-                            }
-                            reader.readAsDataURL(file)
+                              const dataUrl = e.target?.result as string;
+                              setRawImageDataUrl(dataUrl);
+                              setCropModalOpen(true); // เปิด Crop Modal ทันที
+                            };
+                            reader.readAsDataURL(file);
                           }
                         }}
                         className="hidden"
@@ -1763,22 +2174,32 @@ export default function SensorDetailPage() {
                       >
                         Choose Image
                       </label>
-                      {selectedImage && (
+                      {croppedFile && (
                         <Button
                           type="button"
                           onClick={async () => {
-                            if (selectedImage) {
-                              setImageUploadLoading(true)
+                            if (croppedFile) {
+                              setImageUploadLoading(true);
                               try {
-                                const result = await uploadSensorImage(params.id, selectedImage)
-                                handleConfigChange('image_url', result.image_url)
-                                setSelectedImage(null)
-                                setImagePreview(null)
-                                setConfigSuccess('Image uploaded successfully!')
+                                const result = await uploadSensorImage(
+                                  params.id,
+                                  croppedFile
+                                );
+                                handleConfigChange(
+                                  "image_url",
+                                  result.image_url
+                                );
+                                // Clear states after successful upload
+                                setCroppedFile(null);
+                                setImagePreview(null);
+                                setRawImageDataUrl(null);
+                                setConfigSuccess(
+                                  "Image uploaded successfully!"
+                                );
                               } catch (error) {
-                                setConfigError('Failed to upload image')
+                                setConfigError("Failed to upload image");
                               } finally {
-                                setImageUploadLoading(false)
+                                setImageUploadLoading(false);
                               }
                             }
                           }}
@@ -1788,33 +2209,132 @@ export default function SensorDetailPage() {
                           {imageUploadLoading ? "Uploading..." : "Upload"}
                         </Button>
                       )}
+                      {croppedFile && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setCroppedFile(null);
+                            setImagePreview(null);
+                            setRawImageDataUrl(null);
+                          }}
+                          className="border-gray-700 text-gray-300 hover:bg-gray-800 text-sm"
+                        >
+                          Cancel
+                        </Button>
+                      )}
                     </div>
-                    
-                    {/* Image Preview */}
+
+                    {/* Image Preview (แสดงรูปที่ครอปแล้ว) */}
                     {imagePreview && (
                       <div className="flex items-center space-x-3">
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview" 
+                        <img
+                          src={imagePreview}
+                          alt="Cropped Preview"
                           className="w-16 h-16 object-cover rounded border border-gray-600"
                         />
-                        <span className="text-sm text-gray-400">Preview</span>
+                        <span className="text-sm text-gray-400">
+                          Ready to upload
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
-
               </div>
+
+              {/* Crop Modal */}
+              {cropModalOpen && rawImageDataUrl && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center">
+                  <div
+                    className="absolute inset-0 bg-black/80"
+                    onClick={() => {
+                      setCropModalOpen(false);
+                      setRawImageDataUrl(null);
+                      setCrop({ x: 0, y: 0 });
+                      setZoom(1);
+                    }}
+                  />
+                  <div className="relative z-[61] w-full max-w-lg bg-gray-900 border border-gray-800 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3">Crop Image</h3>
+
+                    <div className="relative w-full h-[300px] bg-black rounded-md overflow-hidden">
+                      <Cropper
+                        image={rawImageDataUrl}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        onCropChange={setCrop}
+                        onZoomChange={setZoom}
+                        onCropComplete={onCropComplete}
+                        restrictPosition={false}
+                        showGrid={true}
+                        objectFit="contain"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-4">
+                      <Label className="text-sm text-gray-400">Zoom</Label>
+                      <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        step={0.01}
+                        value={zoom}
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                        onClick={() => {
+                          setCropModalOpen(false);
+                          setRawImageDataUrl(null);
+                          setCrop({ x: 0, y: 0 });
+                          setZoom(1);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={async () => {
+                          if (!rawImageDataUrl || !croppedAreaPixels) return;
+                          try {
+                            const { file, previewUrl } = await getCroppedImg(
+                              rawImageDataUrl,
+                              croppedAreaPixels
+                            );
+                            setCroppedFile(file);
+                            setImagePreview(previewUrl);
+                            setCropModalOpen(false);
+                            setRawImageDataUrl(null);
+                            setCrop({ x: 0, y: 0 });
+                            setZoom(1);
+                          } catch (err) {
+                            console.error("Crop failed:", err);
+                            setConfigError("Failed to crop image");
+                          }
+                        }}
+                      >
+                        Crop
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-2 pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setConfigModalOpen(false)
-                    setConfigError(null)
-                    setConfigSuccess(null)
-                    setConfigLoading(false)
+                    setConfigModalOpen(false);
+                    setConfigError(null);
+                    setConfigSuccess(null);
+                    setConfigLoading(false);
                   }}
                   className="border-gray-700 text-gray-300 hover:bg-gray-800"
                   disabled={configLoading}
@@ -1833,6 +2353,76 @@ export default function SensorDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ⬇️ Crop Modal */}
+      {cropModalOpen && rawImageDataUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/80"
+            onClick={() => setCropModalOpen(false)}
+          />
+          <div className="relative z-[61] w-full max-w-lg bg-gray-900 border border-gray-800 rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-3">Crop Image</h3>
+
+            <div className="relative w-full h-[300px] bg-black rounded-md overflow-hidden">
+              <Cropper
+                image={rawImageDataUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+                restrictPosition={false}
+                showGrid={true}
+                objectFit="contain"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 mt-4">
+              <Label className="text-sm text-gray-400">Zoom</Label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                onClick={() => setCropModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={async () => {
+                  if (!rawImageDataUrl || !croppedAreaPixels) return;
+                  try {
+                    const { file, previewUrl } = await getCroppedImg(
+                      rawImageDataUrl,
+                      croppedAreaPixels
+                    );
+                    setCroppedFile(file);
+                    setImagePreview(previewUrl);
+                    setCropModalOpen(false);
+                  } catch (err) {
+                    console.error("Crop failed:", err);
+                  }
+                }}
+              >
+                Crop
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

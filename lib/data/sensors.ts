@@ -31,7 +31,7 @@ async function fetchRealSensors(): Promise<Sensor[]> {
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}/suratech/sensors/with-last-data`,
+      `${API_BASE_URL}/sensors/with-last-data`,
       {
         cache: "no-store", // Disable caching for real-time data
         headers: {

@@ -63,6 +63,7 @@ export default function RegisterSensorForm() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const router = useRouter();
   const { toast } = useToast();
+  const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
   // Initialize form with react-hook-form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -121,7 +122,7 @@ export default function RegisterSensorForm() {
         note: values.notes || "",
       };
 
-      const response = await fetch("https://sc.promptlabai.com/suratech/sensors/web-register", {
+      const response = await fetch(`${BASE_API_URL}/sensors/web-register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -92,7 +92,7 @@ export async function uploadSensorImage(sensorId: string, imageFile: File): Prom
   const formData = new FormData()
   formData.append('image', imageFile)
 
-  const response = await fetch(`${API_BASE_URL}/suratech/sensors/${sensorId}/image`, {
+  const response = await fetch(`${API_BASE_URL}/sensors/${sensorId}/image`, {
     method: 'POST',
     body: formData,
   })

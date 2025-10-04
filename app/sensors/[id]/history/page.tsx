@@ -33,13 +33,14 @@ export default function SensorHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [chartType, setChartType] = useState("trend")
+  const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
 
   useEffect(() => {
     async function fetchHistory() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(`https://sc.promptlabai.com/suratech/sensors/${params.id}/history`)
+        const res = await fetch(`${BASE_API_URL}/sensors/${params.id}/history`)
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
         }
