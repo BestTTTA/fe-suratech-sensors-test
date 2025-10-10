@@ -1243,7 +1243,9 @@ export default function SensorDetailPage() {
                       setSelectedDatetime(datetime);
                       try {
                         const response = await fetch(
-                          `${BASE_API_URL}/sensors/${params.id}/last-data?datetime=${encodeURIComponent(datetime)}`,
+                          `${BASE_API_URL}/sensors/${
+                            params.id
+                          }/last-data?datetime=${encodeURIComponent(datetime)}`,
                           {
                             headers: { Accept: "application/json" },
                           }
@@ -1330,7 +1332,16 @@ export default function SensorDetailPage() {
               <div className="flex-shrink-0 flex justify-center">
                 <div className="w-24 h-24 bg-gray-700 rounded-md flex items-center justify-center">
                   {configData.image_url && (
-                    <img src={configData.image_url} alt="Sensor" />
+                    <img
+                      src={configData.image_url}
+                      alt="Sensor"
+                      style={{
+                        aspectRatio: "1 / 1",
+                        objectFit: "cover",
+                        width: "100%",
+                        height: "100%",
+                      }}
+                    />
                   )}
                 </div>
               </div>
