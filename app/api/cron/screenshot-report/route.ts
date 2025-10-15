@@ -102,100 +102,108 @@ export async function GET(request: NextRequest) {
       await page.keyboard.press('Enter')
     }
 
-    // 4) รอให้ล็อกอินสำเร็จและโหลดหน้าหลัก
-    console.log('[CRON] Waiting for navigation after login...')
+    // 4) รอ redirect/โหลดข้อมูล (สูงสุด 60s) แล้วรอต่อให้เสถียร
     await Promise.race([
       page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60_000 }),
-      page.waitForSelector('button, .dashboard, [data-dashboard-ready="true"]', { timeout: 60_000 }),
+      page.waitForSelector('button, h1, .dashboard, [data-dashboard-ready="true"]', { timeout: 60_000 }),
     ]).catch(() => {
-      console.warn('[CRON] Navigation/initial load timeout; continuing...')
+      console.warn('[CRON] No explicit signal; will rely on timed wait.')
     })
 
-    await delay(3000) // รอให้หน้าโหลดเสร็จ
+    console.log('[CRON] Logged in, waiting for page to load...')
+    await delay(5000) // รอให้หน้าโหลดเสร็จ
 
-    // 5) คลิกปุ่ม "View Dashboard" เพื่อไปหน้า /dashboard (ถ้ายังไม่ได้อยู่)
-    console.log('[CRON] Checking if need to navigate to dashboard...')
-    const currentUrl = page.url()
-    
-    if (!currentUrl.includes('/dashboard')) {
-      console.log('[CRON] Navigating to dashboard...')
-      // หาปุ่ม "View Dashboard" และคลิก
-      const dashboardClicked = await page.$$eval('a, button', (elements) => {
-        const dashboardBtn = elements.find((el) => {
-          const text = el.textContent || ''
-          return /view\s*dashboard|dashboard/i.test(text.trim())
-        }) as HTMLElement | undefined
-        if (dashboardBtn) {
-          dashboardBtn.click()
-          return true
-        }
-        return false
-      })
-
-      if (!dashboardClicked) {
-        // ถ้าหาปุ่มไม่เจอ ให้ navigate ตรงๆ
-        const dashboardUrl = `${targetUrl}/dashboard`
-        console.log(`[CRON] Navigate directly to: ${dashboardUrl}`)
-        await page.goto(dashboardUrl, { waitUntil: 'networkidle2', timeout: 60_000 })
-      } else {
-        // รอให้ navigate เสร็จ
-        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60_000 }).catch(() => {})
-      }
-
-      await delay(3000)
-    }
-
-    // 6) เปลี่ยนเป็น Dot View
-    console.log('[CRON] Switching to Dot View...')
+    // 5) คลิกปุ่ม Dot View
+    console.log('[CRON] Looking for Dot View button...')
     const dotViewClicked = await page.evaluate(() => {
-      // หาปุ่มที่เป็น Dot View โดยดูจาก aria-label, title, หรือ data attribute
-      const buttons = Array.from(document.querySelectorAll('button'))
-      
       // วิธีที่ 1: หาจาก aria-label หรือ title
-      let dotButton = buttons.find(btn => {
-        const ariaLabel = btn.getAttribute('aria-label') || ''
-        const title = btn.getAttribute('title') || ''
-        return /dot.*view/i.test(ariaLabel) || /dot.*view/i.test(title)
+      let dotButton = Array.from(document.querySelectorAll('button')).find(btn => {
+        const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase()
+        const title = (btn.getAttribute('title') || '').toLowerCase()
+        return ariaLabel.includes('dot') || title.includes('dot')
       })
 
-      // วิธีที่ 2: หาจากโครงสร้าง ViewSelector (ปุ่มที่ 3)
+      // วิธีที่ 2: หาจากไอคอนที่มีหลาย circles (Dot View icon มักมี 9 circles)
       if (!dotButton) {
-        // หา container ของ ViewSelector
-        const viewSelectorContainer = document.querySelector('[class*="flex"][class*="gap"]')
-        if (viewSelectorContainer) {
-          const viewButtons = viewSelectorContainer.querySelectorAll('button')
-          // ปุ่ม Dot View มักเป็นปุ่มที่ 3 (index 2)
-          dotButton = viewButtons[2] as HTMLButtonElement
-        }
-      }
-
-      // วิธีที่ 3: หาจากไอคอนที่เกี่ยวข้องกับ dot
-      if (!dotButton) {
+        const buttons = Array.from(document.querySelectorAll('button'))
         dotButton = buttons.find(btn => {
           const svg = btn.querySelector('svg')
           if (!svg) return false
           const circles = svg.querySelectorAll('circle')
-          // Dot view icon มักมีหลาย circle
-          return circles.length >= 3
+          // Dot view icon มีหลาย circles (มากกว่า 3)
+          return circles.length >= 4
+        })
+      }
+
+      // วิธีที่ 3: หาตามตำแหน่ง - หาปุ่มที่อยู่ในกลุ่มเดียวกับ Register Device
+      if (!dotButton) {
+        // หา section ที่มีปุ่ม Register Device และ View Dashboard
+        const sections = Array.from(document.querySelectorAll('div'))
+        for (const section of sections) {
+          const text = section.textContent || ''
+          if (text.includes('Register Device') && text.includes('View Dashboard')) {
+            // หาปุ่มทั้งหมดใน section นี้
+            const buttons = section.querySelectorAll('button')
+            const viewButtons = Array.from(buttons).filter(btn => {
+              const btnText = btn.textContent || ''
+              // กรองเอาเฉพาะปุ่มที่ไม่ใช่ Register, Dashboard, Refresh
+              return !btnText.includes('Register') && 
+                     !btnText.includes('Dashboard') && 
+                     !btnText.includes('Refresh') &&
+                     !btnText.includes('Now')
+            })
+            
+            // ถ้ามี 3 ปุ่ม (Grid, List, Dot) เอาปุ่มที่ 3
+            if (viewButtons.length >= 3) {
+              dotButton = viewButtons[2] as HTMLButtonElement
+            }
+          }
+        }
+      }
+
+      // วิธีที่ 4: หาจาก SVG path หรือ structure
+      if (!dotButton) {
+        const buttons = Array.from(document.querySelectorAll('button'))
+        dotButton = buttons.find(btn => {
+          const svg = btn.querySelector('svg')
+          if (!svg) return false
+          // Dot view มักมี circle หลายตัว หรือ rect หลายตัว
+          const shapes = svg.querySelectorAll('circle, rect')
+          return shapes.length >= 6
         })
       }
 
       if (dotButton) {
-        (dotButton as HTMLElement).click()
+        console.log('Found Dot View button, clicking...')
+        ;(dotButton as HTMLElement).click()
         return true
       }
+      
+      console.log('Dot View button not found')
       return false
     })
 
     if (!dotViewClicked) {
-      console.warn('[CRON] Could not find Dot View button, will capture current view')
+      console.warn('[CRON] Could not find Dot View button')
+      // ถ้าหาไม่เจอ ลองแสดงข้อมูลปุ่มทั้งหมดเพื่อ debug
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'))
+        console.log('All buttons found:', buttons.map((btn, i) => ({
+          index: i,
+          text: btn.textContent?.trim(),
+          ariaLabel: btn.getAttribute('aria-label'),
+          title: btn.getAttribute('title'),
+          hasSvg: !!btn.querySelector('svg'),
+          circles: btn.querySelectorAll('circle').length
+        })))
+      })
     } else {
       console.log('[CRON] Dot View button clicked')
-      await delay(3000) // รอให้ view เปลี่ยน
+      await delay(5000) // รอให้ view เปลี่ยนและข้อมูลโหลด
     }
 
-    // 7) รอให้ข้อมูล sensor โหลดเสร็จ
-    console.log('[CRON] Waiting for sensor data to load...')
+    // 6) รอให้ข้อมูลโหลดเสร็จ
+    console.log('[CRON] Waiting for data to settle...')
     const start = Date.now()
     const cap = 120_000
     while (Date.now() - start < cap) {
@@ -205,22 +213,22 @@ export async function GET(request: NextRequest) {
           document.querySelector('#dashboard-ready') ||
           document.querySelector('[data-dashboard-ready="true"]')
         const hasVisuals =
-          document.querySelectorAll('.chart, canvas, [role="table"], table, [class*="sensor"]').length > 0
+          document.querySelectorAll('.chart, canvas, [role="table"], table, [class*="sensor"], [class*="card"]').length > 0
         return !!explicitReady || hasVisuals
       })
       if (ready) break
     }
 
-    await delay(2000) // รอเพิ่มเล็กน้อยให้แน่ใจว่าข้อมูลโหลดเสร็จ
+    await delay(2000)
 
-    // 8) แคปหน้าจอ
+    // 7) แคปหน้าจอ
     console.log('[CRON] Taking screenshot...')
     const screenshot = (await page.screenshot({ type: 'png', fullPage: true })) as Buffer
 
     await browser.close()
     console.log('[CRON] Screenshot captured.')
 
-    // 9) ส่งอีเมล
+    // 8) ส่งอีเมล
     console.log('[CRON] Sending email...')
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -235,7 +243,7 @@ export async function GET(request: NextRequest) {
     if (recipients.length === 0) throw new Error('No recipients configured in REPORT_RECIPIENTS')
 
     const nowTH = new Date().toLocaleString('th-TH')
-    const subjectTH = `TBKK-Surazense - รายงานประจำทุก 2 สัปดาห์ ${new Date().toLocaleDateString('th-TH')}`
+    const subjectTH = `TBKK-Surazense - รายงานประจำทุก 2 สัปดาห์ (Dot View) ${new Date().toLocaleDateString('th-TH')}`
 
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
@@ -245,7 +253,7 @@ export async function GET(request: NextRequest) {
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">รายงานประจำทุก 2 สัปดาห์ (Dot View)</h2>
           <p>สวัสดีครับ,</p>
-          <p>นี่คือ screenshot ระบบ TBKK-Surazense (Dot View) ณ วันที่ ${nowTH}</p>
+          <p>นี่คือ screenshot ระบบ TBKK-Surazense ในโหมด Dot View ณ วันที่ ${nowTH}</p>
           <p>Screenshot แนบมาพร้อมอีเมลนี้แล้วครับ</p>
           <hr style="border: 1px solid #eee; margin: 20px 0;">
           <p style="color: #666; font-size: 12px;">
@@ -266,6 +274,7 @@ export async function GET(request: NextRequest) {
       message: 'Screenshot report (Dot View) sent successfully',
       timestamp: new Date().toISOString(),
       recipients: recipients.length,
+      viewClicked: dotViewClicked,
     })
   } catch (error) {
     console.error('Cron job error:', error)
