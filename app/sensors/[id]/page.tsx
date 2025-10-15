@@ -1506,7 +1506,7 @@ export default function SensorDetailPage() {
             <div className="bg-[#ff0000]"> Mock color</div>
             <div className="bg-[#ff6600]"> Mock color</div> */}
             {configData.hAxisEnabled && (
-              <Card
+              <Card 
                 className={`border-gray-800 ${getCardBackgroundColorCallback(
                   parseFloat(xStats.velocityTopPeak)
                 )}`}

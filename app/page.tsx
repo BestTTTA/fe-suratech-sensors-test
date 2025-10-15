@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { LayoutDashboardIcon, PlusCircle, RefreshCw } from "lucide-react"
 import { getSensors } from "@/lib/data/sensors"
-import { formatDate, formatRawTime, formatThaiDate } from "@/lib/utils"
+import { formatDate, formatThaiDate } from "@/lib/utils"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 
 export default function SensorsPage() {
@@ -22,6 +22,10 @@ export default function SensorsPage() {
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const hasInitiallyLoaded = useRef(false)
 
+  // ✅ helper
+  const getBangkokTime = () => new Date(new Date().getTime() + 7 * 60 * 60 * 1000)
+
+  // ✅ ดึงจำนวนทั้งหมด
   const fetchTotalSensors = useCallback(async () => {
     try {
       const { total } = await getSensors({ limit: 1000 })
@@ -31,10 +35,7 @@ export default function SensorsPage() {
     }
   }, [])
 
-  const getBangkokTime = () => {
-    return new Date(new Date().getTime() + 7 * 60 * 60 * 1000)
-  }
-
+  // ✅ อัปเดตข้อมูล + ออกสัญญาณให้ puppeteer รับรู้
   const updateSensorData = useCallback(async () => {
     setIsRefreshing(true)
     try {
@@ -42,8 +43,9 @@ export default function SensorsPage() {
       if (window.refreshSensorData) {
         await window.refreshSensorData()
       }
-      //bangkok time
       setLastUpdated(getBangkokTime())
+      // ทำสัญญาณหน้า ready ให้บ็อตรอจบงานได้
+      document.body.setAttribute("data-dashboard-ready", "true")
     } finally {
       setIsRefreshing(false)
     }
@@ -53,35 +55,72 @@ export default function SensorsPage() {
     await updateSensorData()
   }, [updateSensorData])
 
+  // ✅ เปลี่ยนมุมมอง + เก็บลง localStorage + data-attr
   const handleViewChange = useCallback((view: ViewMode) => {
     setCurrentView(view)
+    try {
+      localStorage.setItem("displayMode", view) // ให้ cron ใช้
+    } catch {}
+    document.body.setAttribute("data-view", view) // ให้ cron เช็คได้
+    // เผื่ออยากให้ puppeteer เรียกได้ตรงๆ:
+    ;(window as any).setViewMode = (v: ViewMode) => {
+      setCurrentView(v)
+      try { localStorage.setItem("displayMode", v) } catch {}
+      document.body.setAttribute("data-view", v)
+    }
   }, [])
 
+  // ✅ โหลดครั้งแรก: อ่านค่าโหมดจาก ?view=..., ถ้าไม่มีค่อยดู localStorage
   useEffect(() => {
     if (!hasInitiallyLoaded.current) {
       fetchTotalSensors()
       setLastUpdated(getBangkokTime())
+
+      const params = new URLSearchParams(window.location.search)
+      const viewParam = params.get("view") as ViewMode | null
+      const stored = (typeof window !== "undefined" && localStorage.getItem("displayMode")) as ViewMode | null
+
+      const initialView: ViewMode =
+        (viewParam && (["grid","list","dot"] as const).includes(viewParam)) ? viewParam :
+        (stored && (["grid","list","dot"] as const).includes(stored)) ? stored :
+        "grid"
+
+      // ตั้งค่ามุมมองเริ่มต้น + data-attr
+      setCurrentView(initialView)
+      try { localStorage.setItem("displayMode", initialView) } catch {}
+      document.body.setAttribute("data-view", initialView)
+
+      // โยนตัวช่วยให้ puppeteer เรียกได้
+      ;(window as any).setViewMode = (v: ViewMode) => {
+        setCurrentView(v)
+        try { localStorage.setItem("displayMode", v) } catch {}
+        document.body.setAttribute("data-view", v)
+      }
+
       hasInitiallyLoaded.current = true
     }
   }, [fetchTotalSensors])
 
+  // ✅ ตั้ง interval auto-refresh
   useEffect(() => {
-    if (autoRefreshIntervalRef.current) {
-      clearInterval(autoRefreshIntervalRef.current)
-    }
+    if (autoRefreshIntervalRef.current) clearInterval(autoRefreshIntervalRef.current)
     if (hasInitiallyLoaded.current) {
       autoRefreshIntervalRef.current = setInterval(() => {
         updateSensorData()
-      }, 60000) // Increased from 10s to 60s
+      }, 60_000)
     }
     return () => {
-      if (autoRefreshIntervalRef.current) {
-        clearInterval(autoRefreshIntervalRef.current)
-      }
+      if (autoRefreshIntervalRef.current) clearInterval(autoRefreshIntervalRef.current)
     }
   }, [updateSensorData])
 
-  // Format date/time in Thailand time zone using utility
+  // ✅ ให้ puppeteer ใช้สั่ง refresh ได้ด้วย
+  useEffect(() => {
+    ;(window as any).refreshSensorData = updateSensorData
+    return () => { try { delete (window as any).refreshSensorData } catch {} }
+  }, [updateSensorData])
+
+  // ✅ เวลา
   const currentDateTime = formatDate(new Date().toISOString(), true)
   const lastUpdatedTime = lastUpdated.toISOString()
 
@@ -101,7 +140,8 @@ export default function SensorsPage() {
 
   return (
     <ProtectedRoute>
-      <div className="space-y-6">
+      {/* ให้ cron เช็คสถานะพร้อมด้วย id/data-attr */}
+      <div id="dashboard-ready" data-dashboard-ready="true" className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white">Location of Sensor</h1>
           <div className="text-lg font-medium text-white">{currentDateTime}</div>

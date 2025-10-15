@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import chromium from '@sparticuz/chromium'
 import puppeteer from 'puppeteer-core'
+import type { Page } from 'puppeteer-core'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -10,6 +11,97 @@ export const runtime = 'nodejs'
 
 // ใช้แทน page.waitForTimeout (Puppeteer v22 ไม่มีแล้ว)
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+// บังคับโหมดแสดงผล "dot" บนหน้า dashboard
+async function forceDotDisplay(page: Page) {
+  console.log('[CRON] Switching display mode to DOT...')
+
+  // 1) เซต localStorage + เรียก helper (ถ้าหน้ามี setViewMode)
+  try {
+    await page.evaluate(() => {
+      try { localStorage.setItem('displayMode', 'dot') } catch {}
+      try { (window as any).setViewMode?.('dot') } catch {}
+      document.body?.setAttribute('data-view', 'dot')
+    })
+  } catch {}
+
+  // 2) พยายามคลิก UI toggle โหมด dot (ถ้ามี)
+  const clicked = await (async () => {
+    const selectors = [
+      '[data-view="dot"]',
+      '[data-mode="dot"]',
+      '[data-testid*="dot"]',
+      'input[type="radio"][value="dot"]',
+      'button[aria-label*="dot" i]',
+      'button[aria-label*="marker" i]',
+    ]
+    for (const sel of selectors) {
+      const el = await page.$(sel)
+      if (el) { await el.click().catch(() => {}); return true }
+    }
+    // ไล่ทุกปุ่มแล้วดูข้อความ
+    const ok = await page.$$eval(
+      'button, [role="button"], input[type="button"], label',
+      (nodes: Element[]) => {
+        const isMatch = (t: string) =>
+          /\b(dot|markers?|จุด)\b/i.test((t || '').replace(/\s+/g, ' ').trim())
+        const el = nodes.find((n: Element) => {
+          const h = n as HTMLElement
+          const text =
+            h.innerText ||
+            (h as HTMLInputElement).value ||
+            h.getAttribute('aria-label') ||
+            h.getAttribute('title') ||
+            ''
+          return isMatch(text)
+        }) as HTMLElement | undefined
+        if (el) { el.click(); return true }
+        return false
+      }
+    )
+    return ok
+  })()
+
+  if (!clicked) {
+    console.warn('[CRON] No native DOT toggle found. Will patch charts directly.')
+  }
+
+  // 3) Fallback: แพตช์ Chart.js ให้เป็น dot แล้ว update()
+  try {
+    await page.evaluate(() => {
+      const w = window as any
+      const list =
+        w.Chart?.instances ? Array.from(w.Chart.instances)
+        : (w.Chart?.registry ? Object.values(w.Chart.instances || {}) : [])
+      if (!list || list.length === 0) return
+      list.forEach((chart: any) => {
+        const dsList = chart?.config?.data?.datasets
+        if (!dsList) return
+        dsList.forEach((ds: any) => {
+          ds.pointRadius = typeof ds.pointRadius === 'number' ? Math.max(ds.pointRadius, 3) : 3
+          ds.pointHitRadius = typeof ds.pointHitRadius === 'number' ? Math.max(ds.pointHitRadius, 6) : 6
+          ds.pointHoverRadius = typeof ds.pointHoverRadius === 'number' ? Math.max(ds.pointHoverRadius, 4) : 4
+          if (typeof ds.showLine !== 'undefined') ds.showLine = false
+          if (typeof ds.borderWidth !== 'undefined') ds.borderWidth = 0
+          if (typeof ds.tension !== 'undefined') ds.tension = 0
+        })
+        try { chart.update('none') } catch {}
+      })
+      document.body?.setAttribute('data-view', 'dot')
+    })
+  } catch {}
+
+  // 4) รอให้เรนเดอร์เสร็จและ data-view=dot
+  await delay(1200)
+  try {
+    await page.waitForFunction(
+      () => document.body?.getAttribute('data-view') === 'dot',
+      { timeout: 10_000 }
+    )
+  } catch {
+    console.warn('[CRON] data-view not confirmed as dot; continuing anyway.')
+  }
+}
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -44,9 +136,9 @@ export async function GET(request: NextRequest) {
     const page = await browser.newPage()
     page.setDefaultTimeout(60_000)
 
-    // 1) ไปหน้าล็อกอิน
-    console.log(`[CRON] goto: ${targetUrl}`)
-    await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60_000 })
+    // 1) ไปหน้าล็อกอิน พร้อมบังคับ view=dot
+    console.log(`[CRON] goto: ${targetUrl}?view=dot`)
+    await page.goto(`${targetUrl}?view=dot`, { waitUntil: 'networkidle2', timeout: 60_000 })
 
     // 2) กรอกข้อมูลล็อกอิน
     const loginEmail = process.env.REPORT_LOGIN_EMAIL || 'bst12546@gmail.com'
@@ -64,37 +156,37 @@ export async function GET(request: NextRequest) {
     await page.click(passSel, { clickCount: 3 })
     await page.type(passSel, loginPassword, { delay: 20 })
 
-    // 3) คลิกปุ่ม Sign in (ไม่มี $x แล้ว -> ใช้ $$eval + innerText)
+    // 3) คลิกปุ่ม Sign in
     console.log('[CRON] Clicking Sign in...')
     const clicked = await (async () => {
-      // ปุ่ม type=submit ก่อน
       const submitBtn = await page.$('button[type="submit"], input[type="submit"]')
       if (submitBtn) { await submitBtn.click(); return true }
 
-      // หา button ที่มีข้อความสอดคล้อง แล้วคลิกตัวแรกที่เจอ
-      const success = await page.$$eval('button, input[type="button"]', (nodes) => {
-        const match = (t: string) =>
-          /sign\s*in|เข้าสู่ระบบ|ล็อกอิน|login/i.test(t.replace(/\s+/g, ' ').trim())
-        const btn = nodes.find((n: Element) => {
-          const text =
-            (n as HTMLButtonElement).innerText ||
-            (n as HTMLInputElement).value ||
-            n.getAttribute('aria-label') ||
-            ''
-          return match(text)
-        }) as HTMLElement | undefined
-        if (btn) { btn.click(); return true }
-        return false
-      })
+      const success = await page.$$eval(
+        'button, input[type="button"]',
+        (nodes: Element[]) => {
+          const match = (t: string) =>
+            /sign\s*in|เข้าสู่ระบบ|ล็อกอิน|login/i.test((t || '').replace(/\s+/g, ' ').trim())
+          const btn = nodes.find((n: Element) => {
+            const el = n as HTMLElement
+            const text =
+              el.innerText ||
+              (el as HTMLInputElement).value ||
+              el.getAttribute('aria-label') ||
+              ''
+            return match(text)
+          }) as HTMLElement | undefined
+          if (btn) { btn.click(); return true }
+          return false
+        }
+      )
       if (success) return true
 
-      // เผื่อสุดท้าย: กด Enter ที่ช่องรหัสผ่านเพื่อ submit form
       await Promise.resolve()
       return false
     })()
 
     if (!clicked) {
-      // ส่งคีย์ Enter เพื่อ submit ฟอร์ม
       await page.focus(passSel)
       await page.keyboard.press('Enter')
     }
@@ -124,6 +216,9 @@ export async function GET(request: NextRequest) {
     }
 
     await delay(1500)
+
+    // บังคับโหมด "dot" ก่อนแคปหน้าจอ
+    await forceDotDisplay(page)
 
     // 5) แคปหน้าจอ
     console.log('[CRON] Taking screenshot...')
