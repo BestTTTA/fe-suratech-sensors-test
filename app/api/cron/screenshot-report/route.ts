@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         '--single-process',
         '--ignore-certificate-errors',
       ],
-      defaultViewport: { width: 1920, height: 1080 }, // Use custom viewport
+      defaultViewport: { width: 1920, height: 1080 },
       executablePath,
       headless: true,
       ignoreHTTPSErrors: true,
@@ -71,14 +71,12 @@ export async function GET(request: NextRequest) {
     await page.click(passSel, { clickCount: 3 })
     await page.type(passSel, loginPassword, { delay: 20 })
 
-    // 3) คลิกปุ่ม Sign in (ไม่มี $x แล้ว -> ใช้ $$eval + innerText)
+    // 3) คลิกปุ่ม Sign in
     console.log('[CRON] Clicking Sign in...')
     const clicked = await (async () => {
-      // ปุ่ม type=submit ก่อน
       const submitBtn = await page.$('button[type="submit"], input[type="submit"]')
       if (submitBtn) { await submitBtn.click(); return true }
 
-      // หา button ที่มีข้อความสอดคล้อง แล้วคลิกตัวแรกที่เจอ
       const success = await page.$$eval('button, input[type="button"]', (nodes) => {
         const match = (t: string) =>
           /sign\s*in|เข้าสู่ระบบ|ล็อกอิน|login/i.test(t.replace(/\s+/g, ' ').trim())
@@ -95,26 +93,109 @@ export async function GET(request: NextRequest) {
       })
       if (success) return true
 
-      // เผื่อสุดท้าย: กด Enter ที่ช่องรหัสผ่านเพื่อ submit form
       await Promise.resolve()
       return false
     })()
 
     if (!clicked) {
-      // ส่งคีย์ Enter เพื่อ submit ฟอร์ม
       await page.focus(passSel)
       await page.keyboard.press('Enter')
     }
 
-    // 4) รอ redirect/โหลดข้อมูล (สูงสุด 60s) แล้วรอต่อให้เสถียร (สูงสุด 120s)
+    // 4) รอให้ล็อกอินสำเร็จและโหลดหน้าหลัก
+    console.log('[CRON] Waiting for navigation after login...')
     await Promise.race([
       page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60_000 }),
-      page.waitForSelector('#dashboard-ready, [data-dashboard-ready="true"], .dashboard, .chart, canvas', { timeout: 60_000 }),
+      page.waitForSelector('button, .dashboard, [data-dashboard-ready="true"]', { timeout: 60_000 }),
     ]).catch(() => {
-      console.warn('[CRON] No explicit dashboard signal; will rely on timed wait.')
+      console.warn('[CRON] Navigation/initial load timeout; continuing...')
     })
 
-    console.log('[CRON] Waiting up to 120s for data to settle...')
+    await delay(3000) // รอให้หน้าโหลดเสร็จ
+
+    // 5) คลิกปุ่ม "View Dashboard" เพื่อไปหน้า /dashboard (ถ้ายังไม่ได้อยู่)
+    console.log('[CRON] Checking if need to navigate to dashboard...')
+    const currentUrl = page.url()
+    
+    if (!currentUrl.includes('/dashboard')) {
+      console.log('[CRON] Navigating to dashboard...')
+      // หาปุ่ม "View Dashboard" และคลิก
+      const dashboardClicked = await page.$$eval('a, button', (elements) => {
+        const dashboardBtn = elements.find((el) => {
+          const text = el.textContent || ''
+          return /view\s*dashboard|dashboard/i.test(text.trim())
+        }) as HTMLElement | undefined
+        if (dashboardBtn) {
+          dashboardBtn.click()
+          return true
+        }
+        return false
+      })
+
+      if (!dashboardClicked) {
+        // ถ้าหาปุ่มไม่เจอ ให้ navigate ตรงๆ
+        const dashboardUrl = `${targetUrl}/dashboard`
+        console.log(`[CRON] Navigate directly to: ${dashboardUrl}`)
+        await page.goto(dashboardUrl, { waitUntil: 'networkidle2', timeout: 60_000 })
+      } else {
+        // รอให้ navigate เสร็จ
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60_000 }).catch(() => {})
+      }
+
+      await delay(3000)
+    }
+
+    // 6) เปลี่ยนเป็น Dot View
+    console.log('[CRON] Switching to Dot View...')
+    const dotViewClicked = await page.evaluate(() => {
+      // หาปุ่มที่เป็น Dot View โดยดูจาก aria-label, title, หรือ data attribute
+      const buttons = Array.from(document.querySelectorAll('button'))
+      
+      // วิธีที่ 1: หาจาก aria-label หรือ title
+      let dotButton = buttons.find(btn => {
+        const ariaLabel = btn.getAttribute('aria-label') || ''
+        const title = btn.getAttribute('title') || ''
+        return /dot.*view/i.test(ariaLabel) || /dot.*view/i.test(title)
+      })
+
+      // วิธีที่ 2: หาจากโครงสร้าง ViewSelector (ปุ่มที่ 3)
+      if (!dotButton) {
+        // หา container ของ ViewSelector
+        const viewSelectorContainer = document.querySelector('[class*="flex"][class*="gap"]')
+        if (viewSelectorContainer) {
+          const viewButtons = viewSelectorContainer.querySelectorAll('button')
+          // ปุ่ม Dot View มักเป็นปุ่มที่ 3 (index 2)
+          dotButton = viewButtons[2] as HTMLButtonElement
+        }
+      }
+
+      // วิธีที่ 3: หาจากไอคอนที่เกี่ยวข้องกับ dot
+      if (!dotButton) {
+        dotButton = buttons.find(btn => {
+          const svg = btn.querySelector('svg')
+          if (!svg) return false
+          const circles = svg.querySelectorAll('circle')
+          // Dot view icon มักมีหลาย circle
+          return circles.length >= 3
+        })
+      }
+
+      if (dotButton) {
+        (dotButton as HTMLElement).click()
+        return true
+      }
+      return false
+    })
+
+    if (!dotViewClicked) {
+      console.warn('[CRON] Could not find Dot View button, will capture current view')
+    } else {
+      console.log('[CRON] Dot View button clicked')
+      await delay(3000) // รอให้ view เปลี่ยน
+    }
+
+    // 7) รอให้ข้อมูล sensor โหลดเสร็จ
+    console.log('[CRON] Waiting for sensor data to load...')
     const start = Date.now()
     const cap = 120_000
     while (Date.now() - start < cap) {
@@ -124,24 +205,24 @@ export async function GET(request: NextRequest) {
           document.querySelector('#dashboard-ready') ||
           document.querySelector('[data-dashboard-ready="true"]')
         const hasVisuals =
-          document.querySelectorAll('.chart, canvas, [role="table"], table').length > 0
+          document.querySelectorAll('.chart, canvas, [role="table"], table, [class*="sensor"]').length > 0
         return !!explicitReady || hasVisuals
       })
       if (ready) break
     }
 
-    await delay(1500)
+    await delay(2000) // รอเพิ่มเล็กน้อยให้แน่ใจว่าข้อมูลโหลดเสร็จ
 
-    // 5) แคปหน้าจอ
+    // 8) แคปหน้าจอ
     console.log('[CRON] Taking screenshot...')
     const screenshot = (await page.screenshot({ type: 'png', fullPage: true })) as Buffer
 
     await browser.close()
     console.log('[CRON] Screenshot captured.')
 
-    // 6) ส่งอีเมล
+    // 9) ส่งอีเมล
     console.log('[CRON] Sending email...')
-    const transporter = nodemailer.createTransport({ // Fixed typo: createTransporter -> createTransport
+    const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.GMAIL_USER,
@@ -162,9 +243,9 @@ export async function GET(request: NextRequest) {
       subject: subjectTH,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">รายงานประจำทุก 2 สัปดาห์</h2>
+          <h2 style="color: #333;">รายงานประจำทุก 2 สัปดาห์ (Dot View)</h2>
           <p>สวัสดีครับ,</p>
-          <p>นี่คือ screenshot ระบบ TBKK-Surazense ณ วันที่ ${nowTH}</p>
+          <p>นี่คือ screenshot ระบบ TBKK-Surazense (Dot View) ณ วันที่ ${nowTH}</p>
           <p>Screenshot แนบมาพร้อมอีเมลนี้แล้วครับ</p>
           <hr style="border: 1px solid #eee; margin: 20px 0;">
           <p style="color: #666; font-size: 12px;">
@@ -174,7 +255,7 @@ export async function GET(request: NextRequest) {
         </div>
       `,
       attachments: [
-        { filename: `tbkk-report-${Date.now()}.png`, content: screenshot, contentType: 'image/png' },
+        { filename: `tbkk-dotview-report-${Date.now()}.png`, content: screenshot, contentType: 'image/png' },
       ],
     })
 
@@ -182,7 +263,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Screenshot report sent successfully',
+      message: 'Screenshot report (Dot View) sent successfully',
       timestamp: new Date().toISOString(),
       recipients: recipients.length,
     })
