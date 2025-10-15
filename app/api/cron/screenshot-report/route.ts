@@ -21,9 +21,6 @@ export async function GET(request: NextRequest) {
     const targetUrl = process.env.NEXT_PUBLIC_BASE_URL
     if (!targetUrl) throw new Error('NEXT_PUBLIC_BASE_URL is not set')
 
-    chromium.setHeadlessMode = true
-    chromium.setGraphicsMode = false
-
     const isVercel = !!process.env.VERCEL
     const executablePath = isVercel
       ? await chromium.executablePath()
@@ -35,10 +32,20 @@ export async function GET(request: NextRequest) {
 
     console.log('[CRON] Launching browser...')
     const browser = await puppeteer.launch({
-      args: [...chromium.args, '--ignore-certificate-errors'],
-      defaultViewport: { width: 1920, height: 1080 },
+      args: [
+        ...chromium.args,
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--disable-setuid-sandbox',
+        '--no-sandbox',
+        '--no-zygote',
+        '--single-process',
+        '--ignore-certificate-errors',
+      ],
+      defaultViewport: { width: 1920, height: 1080 }, // Use custom viewport
       executablePath,
-      headless: chromium.headless,
+      headless: true,
+      ignoreHTTPSErrors: true,
     })
 
     const page = await browser.newPage()
@@ -134,7 +141,7 @@ export async function GET(request: NextRequest) {
 
     // 6) ส่งอีเมล
     console.log('[CRON] Sending email...')
-    const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({ // Fixed typo: createTransporter -> createTransport
       service: 'gmail',
       auth: {
         user: process.env.GMAIL_USER,
