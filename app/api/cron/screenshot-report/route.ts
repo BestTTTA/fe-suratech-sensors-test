@@ -67,9 +67,11 @@ export async function GET(request: NextRequest) {
     // 3) คลิกปุ่ม Sign in (ไม่มี $x แล้ว -> ใช้ $$eval + innerText)
     console.log('[CRON] Clicking Sign in...')
     const clicked = await (async () => {
+      // ปุ่ม type=submit ก่อน
       const submitBtn = await page.$('button[type="submit"], input[type="submit"]')
       if (submitBtn) { await submitBtn.click(); return true }
 
+      // หา button ที่มีข้อความสอดคล้อง แล้วคลิกตัวแรกที่เจอ
       const success = await page.$$eval('button, input[type="button"]', (nodes) => {
         const match = (t: string) =>
           /sign\s*in|เข้าสู่ระบบ|ล็อกอิน|login/i.test(t.replace(/\s+/g, ' ').trim())
@@ -86,58 +88,39 @@ export async function GET(request: NextRequest) {
       })
       if (success) return true
 
+      // เผื่อสุดท้าย: กด Enter ที่ช่องรหัสผ่านเพื่อ submit form
       await Promise.resolve()
       return false
     })()
 
     if (!clicked) {
+      // ส่งคีย์ Enter เพื่อ submit ฟอร์ม
       await page.focus(passSel)
       await page.keyboard.press('Enter')
     }
 
-    // 4) รอ redirect/โหลดข้อมูลเบื้องต้น (สูงสุด 60s)
+    // 4) รอ redirect/โหลดข้อมูล (สูงสุด 60s) แล้วรอต่อให้เสถียร (สูงสุด 120s)
     await Promise.race([
       page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60_000 }),
       page.waitForSelector('#dashboard-ready, [data-dashboard-ready="true"], .dashboard, .chart, canvas', { timeout: 60_000 }),
     ]).catch(() => {
-      console.warn('[CRON] No explicit dashboard signal after login; continuing.')
+      console.warn('[CRON] No explicit dashboard signal; will rely on timed wait.')
     })
 
-    // ⭐ 4.1) บังคับเข้า "dot view" เสมอหลังล็อกอิน
-    const homeDotUrl = new URL('/?view=dot', targetUrl).toString()
-    console.log(`[CRON] Forcing dot view at: ${homeDotUrl}`)
-    await page.goto(homeDotUrl, { waitUntil: 'networkidle2', timeout: 60_000 }).catch(() => {
-      console.warn('[CRON] Could not goto /?view=dot, will try in-page fallbacks.')
-    })
-
-    // ⭐ 4.2) ตั้งค่า view=dot แบบกันเหนียว (รองรับกรณีอิง localStorage / window.setViewMode)
-    // - รอให้โค้ดฝั่ง client นิยาม setViewMode ถ้ามี
-    await page.waitForFunction('document.body != null', { timeout: 10_000 }).catch(() => {})
-    await page.evaluate(() => {
-      try { localStorage.setItem('displayMode', 'dot') } catch {}
-    })
-    await page.waitForFunction('typeof window.setViewMode === "function"', { timeout: 10_000 }).then(
-      async () => { await page.evaluate(() => (window as any).setViewMode?.('dot')) }
-    ).catch(() => {
-      // ถ้าไม่มี setViewMode ก็พึ่งพา query param + data-attr จากหน้า client
-    })
-
-    // ⭐ 4.3) รอให้หน้า "พร้อม" และยืนยันว่า data-view เป็น "dot"
-    console.log('[CRON] Waiting up to 120s for dot view & data to settle...')
+    console.log('[CRON] Waiting up to 120s for data to settle...')
     const start = Date.now()
     const cap = 120_000
     while (Date.now() - start < cap) {
       await delay(5_000)
-      const { ready, isDot } = await page.evaluate(() => {
+      const ready = await page.evaluate(() => {
         const explicitReady =
           document.querySelector('#dashboard-ready') ||
           document.querySelector('[data-dashboard-ready="true"]')
         const hasVisuals =
           document.querySelectorAll('.chart, canvas, [role="table"], table').length > 0
-        const dataView = document.body?.getAttribute('data-view')
-        return { ready: !!explicitReady || hasVisuals, isDot: dataView === 'dot' }
+        return !!explicitReady || hasVisuals
       })
-      if (ready && isDot) break
+      if (ready) break
     }
 
     await delay(1500)
